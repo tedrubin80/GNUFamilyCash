@@ -1,140 +1,4 @@
-- name: Organize Prisma schema
-      run:
-        echo "🗄️ Organizing Prisma schema..."
-        
-        # Find and move Prisma schema
-        schema_files=(
-          "prisma/prisma-schema.txt"
-          "prisma-schema.txt" 
-          "nextjs-setup.json"
-          "project-config-files.json"
-        )
-        
-        schema_created=false
-        for file in "${schema_files[@]}"; do
-          if [[ -f "$file" ]]; then
-            echo "Processing $file for Prisma schema..."
-            
-            if [[ "$file" == *".json" ]]; then
-              # Extract schema from JSON files
-              if grep -q "prisma/schema.prisma" "$file"; then
-                echo "Extracting schema from JSON file: $file"
-                # Try to extract the schema content between the prisma section
-                awk '/prisma\/schema\.prisma.*`/{flag=1; next} /`$/{flag=0} flag' "$file" > "prisma/schema.prisma"
-                
-                # If that didn't work, try a different approach
-                if [[ ! -s "prisma/schema.prisma" ]]; then
-                  # Look for the schema content in a different format
-                  sed -n '/generator client/,/^enum AccountType/p' "$file" > "prisma/schema.prisma"
-                fi
-                
-                if [[ -s "prisma/schema.prisma" ]]; then
-                  schema_created=true
-                  echo "✅ Schema extracted from $file"
-                  break
-                fi
-              fi
-            else
-              # Direct copy for .txt files
-              cp "$file" "prisma/schema.prisma"
-              schema_created=true
-              echo "✅ Schema copied from $file"
-              break
-            fi
-          fi
-        done
-        
-        # If no schema found, create a minimal one
-        if [[ "$schema_created" == false ]]; then
-          echo "Creating minimal Prisma schema..."
-          cat > prisma/schema.prisma << 'EOF'
-        // This is your Prisma schema file,
-        // learn more about it in the docs: https://pris.ly/d/prisma-schema
-        
-        generator client {
-          provider = "prisma-client-js"
-        }
-        
-        datasource db {
-          provider = "mysql"
-          url      = env("DATABASE_URL")
-        }
-        
-        model User {
-          id        String   @id @default(cuid())
-          email     String   @unique
-          username  String   @unique
-          name      String
-          password  String
-          role      UserRole @default(USER)
-          createdAt DateTime @default(now())
-          updatedAt DateTime @updatedAt
-        
-          // Relations
-          accounts     Account[]
-          transactions Transaction[]
-          budgets      Budget[]
-        
-          @@map("users")
-        }
-        
-        model Account {
-          id             String   @id @default(cuid())
-          name           String
-          code           String?
-          type           AccountType
-          balance        Decimal  @default(0) @db.Decimal(15, 2)
-          parentId       String?
-          reconciled     Boolean  @default(false)
-          lastReconciled DateTime?
-          createdAt      DateTime @default(now())
-          updatedAt      DateTime @updatedAt
-        
-          // Relations
-          user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-          userId       String
-          parent       Account?       @relation("AccountHierarchy", fields: [parentId], references: [id])
-          children     Account[]      @relation("AccountHierarchy")
-          splits       TransactionSplit[]
-          budgetItems  BudgetItem[]
-        
-          @@map("accounts")
-        }
-        
-        model Transaction {
-          id          String   @id @default(cuid())
-          date        DateTime
-          description String
-          reconciled  Boolean  @default(false)
-          createdAt   DateTime @default(now())
-          updatedAt   DateTime @updatedAt
-        
-          // Relations
-          user   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-          userId String
-          splits TransactionSplit[]
-        
-          @@map("transactions")
-        }
-        
-        model TransactionSplit {
-          id     String  @id @default(cuid())
-          debit  Decimal @default(0) @db.Decimal(15, 2)
-          credit Decimal @default(0) @db.Decimal(15, 2)
-        
-          // Relations
-          transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-          transactionId String
-          account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
-          accountId     String
-        
-          @@map("transaction_splits")
-        }
-        
-        model Budget {
-          id        String   @id @default(cuid())
-          name      String
-          # .github/workflows/organize-files.yml
+# .github/workflows/organize-files.yml
 name: Organize Family GnuCash Project Files
 
 on:
@@ -143,10 +7,10 @@ on:
       force_overwrite:
         description: 'Force overwrite existing files'
         required: false
-        default: 'false'
+        default: false
         type: boolean
   push:
-    branches: [ main, master ]
+    branches: [main, master]
     paths:
       - '*.md'
       - '*.ts'
@@ -458,28 +322,220 @@ jobs:
           "project-config-files.json"
         )
         
+        schema_created=false
         for file in "${schema_files[@]}"; do
           if [[ -f "$file" ]]; then
+            echo "Processing $file for Prisma schema..."
+            
             if [[ "$file" == *".json" ]]; then
               # Extract schema from JSON files
               if grep -q "prisma/schema.prisma" "$file"; then
-                # Extract the schema content
-                sed -n '/prisma\/schema.prisma/,/^}/p' "$file" | sed '1d; $d' > "prisma/schema.prisma"
-                break
+                echo "Extracting schema from JSON file: $file"
+                # Try to extract the schema content between the prisma section
+                awk '/prisma\/schema\.prisma.*`/{flag=1; next} /`$/{flag=0} flag' "$file" > "prisma/schema.prisma"
+                
+                # If that didn't work, try a different approach
+                if [[ ! -s "prisma/schema.prisma" ]]; then
+                  # Look for the schema content in a different format
+                  sed -n '/generator client/,/^enum AccountType/p' "$file" > "prisma/schema.prisma"
+                fi
+                
+                if [[ -s "prisma/schema.prisma" ]]; then
+                  schema_created=true
+                  echo "✅ Schema extracted from $file"
+                  break
+                fi
               fi
             else
+              # Direct copy for .txt files
               cp "$file" "prisma/schema.prisma"
+              schema_created=true
+              echo "✅ Schema copied from $file"
               break
             fi
           fi
         done
         
-        # Create seed file
+        # If no schema found, create a minimal one
+        if [[ "$schema_created" == false ]]; then
+          echo "Creating minimal Prisma schema..."
+          cat > prisma/schema.prisma << 'EOF'
+        // This is your Prisma schema file,
+        // learn more about it in the docs: https://pris.ly/d/prisma-schema
+        
+        generator client {
+          provider = "prisma-client-js"
+        }
+        
+        datasource db {
+          provider = "mysql"
+          url      = env("DATABASE_URL")
+        }
+        
+        model User {
+          id        String   @id @default(cuid())
+          email     String   @unique
+          username  String   @unique
+          name      String
+          password  String
+          role      UserRole @default(USER)
+          createdAt DateTime @default(now())
+          updatedAt DateTime @updatedAt
+        
+          // Relations
+          accounts     Account[]
+          transactions Transaction[]
+          budgets      Budget[]
+        
+          @@map("users")
+        }
+        
+        model Account {
+          id             String   @id @default(cuid())
+          name           String
+          code           String?
+          type           AccountType
+          balance        Decimal  @default(0) @db.Decimal(15, 2)
+          parentId       String?
+          reconciled     Boolean  @default(false)
+          lastReconciled DateTime?
+          createdAt      DateTime @default(now())
+          updatedAt      DateTime @updatedAt
+        
+          // Relations
+          user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+          userId       String
+          parent       Account?       @relation("AccountHierarchy", fields: [parentId], references: [id])
+          children     Account[]      @relation("AccountHierarchy")
+          splits       TransactionSplit[]
+          budgetItems  BudgetItem[]
+        
+          @@map("accounts")
+        }
+        
+        model Transaction {
+          id          String   @id @default(cuid())
+          date        DateTime
+          description String
+          reconciled  Boolean  @default(false)
+          createdAt   DateTime @default(now())
+          updatedAt   DateTime @updatedAt
+        
+          // Relations
+          user   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+          userId String
+          splits TransactionSplit[]
+        
+          @@map("transactions")
+        }
+        
+        model TransactionSplit {
+          id     String  @id @default(cuid())
+          debit  Decimal @default(0) @db.Decimal(15, 2)
+          credit Decimal @default(0) @db.Decimal(15, 2)
+        
+          // Relations
+          transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+          transactionId String
+          account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+          accountId     String
+        
+          @@map("transaction_splits")
+        }
+        
+        model Budget {
+          id        String   @id @default(cuid())
+          name      String
+          period    String   // YYYY-MM format
+          createdAt DateTime @default(now())
+          updatedAt DateTime @updatedAt
+        
+          // Relations
+          user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+          userId String
+          items BudgetItem[]
+        
+          @@map("budgets")
+        }
+        
+        model BudgetItem {
+          id       String  @id @default(cuid())
+          budgeted Decimal @db.Decimal(15, 2)
+          actual   Decimal @default(0) @db.Decimal(15, 2)
+        
+          // Relations
+          budget    Budget  @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+          budgetId  String
+          account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+          accountId String
+        
+          @@map("budget_items")
+        }
+        
+        enum UserRole {
+          ADMIN
+          USER
+          READONLY
+        }
+        
+        enum AccountType {
+          ASSET
+          LIABILITY
+          INCOME
+          EXPENSE
+          EQUITY
+        }
+        EOF
+        fi
+        
+        # Create seed file if it exists
         if [[ -f "prisma/seed.ts" ]]; then
-          cp "prisma/seed.ts" "prisma/seed.ts"
+          echo "Prisma seed file already exists"
+        else
+          echo "Creating Prisma seed file..."
+          cat > prisma/seed.ts << 'EOF'
+        import { PrismaClient } from '@prisma/client'
+        import bcrypt from 'bcryptjs'
+        
+        const prisma = new PrismaClient()
+        
+        async function main() {
+          console.log('🌱 Starting database seed...')
+        
+          // Create admin user
+          const adminPassword = await bcrypt.hash('admin123', 12)
+          const admin = await prisma.user.upsert({
+            where: { username: 'admin' },
+            update: {},
+            create: {
+              username: 'admin',
+              email: 'admin@family-gnucash.local',
+              name: 'Family Admin',
+              password: adminPassword,
+              role: 'ADMIN',
+            },
+          })
+        
+          console.log('✅ Database seeded successfully!')
+          console.log('👤 Created admin user: admin / admin123')
+        }
+        
+        main()
+          .catch((e) => {
+            console.error('❌ Error seeding database:', e)
+            process.exit(1)
+          })
+          .finally(async () => {
+            await prisma.$disconnect()
+          })
+        EOF
         fi
         
         echo "✅ Prisma files organized"
+        
+        # Generate Prisma client
+        echo "🔧 Generating Prisma client..."
+        npx prisma generate || echo "⚠️ Prisma generate failed - may need manual setup"
 
     - name: Organize app directory files
       run: |
