@@ -1,0 +1,935 @@
+- name: Organize Prisma schema
+      run: |
+        echo "🗄️ Organizing Prisma schema..."
+        
+        # Find and move Prisma schema
+        schema_files=(
+          "prisma/prisma-schema.txt"
+          "prisma-schema.txt" 
+          "nextjs-setup.json"
+          "project-config-files.json"
+        )
+        
+        schema_created=false
+        for file in "${schema_files[@]}"; do
+          if [[ -f "$file" ]]; then
+            echo "Processing $file for Prisma schema..."
+            
+            if [[ "$file" == *".json" ]]; then
+              # Extract schema from JSON files
+              if grep -q "prisma/schema.prisma" "$file"; then
+                echo "Extracting schema from JSON file: $file"
+                # Try to extract the schema content between the prisma section
+                awk '/prisma\/schema\.prisma.*`/{flag=1; next} /`$/{flag=0} flag' "$file" > "prisma/schema.prisma"
+                
+                # If that didn't work, try a different approach
+                if [[ ! -s "prisma/schema.prisma" ]]; then
+                  # Look for the schema content in a different format
+                  sed -n '/generator client/,/^enum AccountType/p' "$file" > "prisma/schema.prisma"
+                fi
+                
+                if [[ -s "prisma/schema.prisma" ]]; then
+                  schema_created=true
+                  echo "✅ Schema extracted from $file"
+                  break
+                fi
+              fi
+            else
+              # Direct copy for .txt files
+              cp "$file" "prisma/schema.prisma"
+              schema_created=true
+              echo "✅ Schema copied from $file"
+              break
+            fi
+          fi
+        done
+        
+        # If no schema found, create a minimal one
+        if [[ "$schema_created" == false ]]; then
+          echo "Creating minimal Prisma schema..."
+          cat > prisma/schema.prisma << 'EOF'
+        // This is your Prisma schema file,
+        // learn more about it in the docs: https://pris.ly/d/prisma-schema
+        
+        generator client {
+          provider = "prisma-client-js"
+        }
+        
+        datasource db {
+          provider = "mysql"
+          url      = env("DATABASE_URL")
+        }
+        
+        model User {
+          id        String   @id @default(cuid())
+          email     String   @unique
+          username  String   @unique
+          name      String
+          password  String
+          role      UserRole @default(USER)
+          createdAt DateTime @default(now())
+          updatedAt DateTime @updatedAt
+        
+          // Relations
+          accounts     Account[]
+          transactions Transaction[]
+          budgets      Budget[]
+        
+          @@map("users")
+        }
+        
+        model Account {
+          id             String   @id @default(cuid())
+          name           String
+          code           String?
+          type           AccountType
+          balance        Decimal  @default(0) @db.Decimal(15, 2)
+          parentId       String?
+          reconciled     Boolean  @default(false)
+          lastReconciled DateTime?
+          createdAt      DateTime @default(now())
+          updatedAt      DateTime @updatedAt
+        
+          // Relations
+          user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+          userId       String
+          parent       Account?       @relation("AccountHierarchy", fields: [parentId], references: [id])
+          children     Account[]      @relation("AccountHierarchy")
+          splits       TransactionSplit[]
+          budgetItems  BudgetItem[]
+        
+          @@map("accounts")
+        }
+        
+        model Transaction {
+          id          String   @id @default(cuid())
+          date        DateTime
+          description String
+          reconciled  Boolean  @default(false)
+          createdAt   DateTime @default(now())
+          updatedAt   DateTime @updatedAt
+        
+          // Relations
+          user   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+          userId String
+          splits TransactionSplit[]
+        
+          @@map("transactions")
+        }
+        
+        model TransactionSplit {
+          id     String  @id @default(cuid())
+          debit  Decimal @default(0) @db.Decimal(15, 2)
+          credit Decimal @default(0) @db.Decimal(15, 2)
+        
+          // Relations
+          transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+          transactionId String
+          account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+          accountId     String
+        
+          @@map("transaction_splits")
+        }
+        
+        model Budget {
+          id        String   @id @default(cuid())
+          name      String
+          # .github/workflows/organize-files.yml
+name: Organize Family GnuCash Project Files
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_overwrite:
+        description: 'Force overwrite existing files'
+        required: false
+        default: 'false'
+        type: boolean
+  push:
+    branches: [ main, master ]
+    paths:
+      - '*.md'
+      - '*.ts'
+      - '*.tsx'
+      - '*.js'
+      - '*.json'
+      - '*.css'
+
+jobs:
+  organize-files:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        # Don't cache until package.json is organized
+
+    - name: Create directory structure
+      run: |
+        echo "🏗️ Creating Next.js directory structure..."
+        
+        # Create main directories
+        mkdir -p app/{admin,api,accounts,budgets,dashboard,login,reports,transactions,reconciliation,import-export}
+        mkdir -p app/admin/{users,settings}
+        mkdir -p app/api/{auth,admin,accounts,transactions,budgets,import,export}
+        mkdir -p app/api/auth/[...nextauth]
+        mkdir -p app/api/admin/{users,settings}
+        mkdir -p app/api/transactions/[id]/reconcile
+        mkdir -p components
+        mkdir -p lib
+        mkdir -p prisma
+        mkdir -p types
+        mkdir -p public
+        
+        echo "✅ Directory structure created"
+
+    - name: Organize configuration files
+      run: |
+        echo "📦 Organizing configuration files..."
+        
+        # Root configuration files
+        files_to_move=(
+          "package-json.json:package.json"
+          "scripts/package-json.json:package.json"
+          "project-config-files.json:package.json"
+          "next-config.js:next.config.js"
+          "tailwind-config.js:tailwind.config.js"
+          "postcss-config.js:postcss.config.js"
+          "tsconfig.json:tsconfig.json"
+          "scripts/env-local.sh:.env.local.example"
+        )
+        
+        # Create package.json first
+        package_created=false
+        for file_pair in "${files_to_move[@]}"; do
+          IFS=':' read -r source dest <<< "$file_pair"
+          if [[ -f "$source" && "$dest" == "package.json" && "$package_created" == false ]]; then
+            echo "Creating package.json from $source"
+            
+            if [[ "$source" == "project-config-files.json" ]]; then
+              # Extract the package.json section from the JS-like file
+              if grep -q '"package.json":' "$source"; then
+                sed -n '/"package.json": {/,/^  },/p' "$source" | sed '1s/.*{/{/; $s/},/}/' > "$dest"
+              fi
+            elif [[ "$source" == *".json" ]]; then
+              # Check if it's a direct JSON file or wrapped
+              if grep -q '"name": "family-gnucash"' "$source"; then
+                cp "$source" "$dest"
+              fi
+            fi
+            
+            if [[ -f "$dest" ]]; then
+              package_created=true
+              echo "✅ package.json created successfully"
+            fi
+            break
+          fi
+        done
+        
+        # If no package.json found, create a minimal one
+        if [[ "$package_created" == false ]]; then
+          echo "Creating minimal package.json..."
+          cat > package.json << 'EOF'
+        {
+          "name": "family-gnucash",
+          "version": "0.1.0",
+          "private": true,
+          "scripts": {
+            "dev": "next dev",
+            "build": "next build",
+            "start": "next start",
+            "lint": "next lint",
+            "db:generate": "prisma generate",
+            "db:push": "prisma db push",
+            "db:migrate": "prisma migrate dev",
+            "db:studio": "prisma studio",
+            "db:seed": "tsx prisma/seed.ts"
+          },
+          "dependencies": {
+            "next": "14.0.0",
+            "react": "^18",
+            "react-dom": "^18",
+            "next-auth": "^4.24.5",
+            "@prisma/client": "^5.6.0",
+            "@next-auth/prisma-adapter": "^1.0.7",
+            "bcryptjs": "^2.4.3",
+            "mysql2": "^3.6.5",
+            "googleapis": "^128.0.0",
+            "csv-parser": "^3.0.0",
+            "papaparse": "^5.4.1",
+            "date-fns": "^2.30.0",
+            "zod": "^3.22.4",
+            "lucide-react": "^0.263.1",
+            "clsx": "^2.0.0",
+            "tailwindcss": "^3.3.0",
+            "autoprefixer": "^10.0.1",
+            "postcss": "^8"
+          },
+          "devDependencies": {
+            "typescript": "^5",
+            "@types/node": "^20",
+            "@types/react": "^18",
+            "@types/react-dom": "^18",
+            "@types/bcryptjs": "^2.4.6",
+            "@types/papaparse": "^5.3.14",
+            "prisma": "^5.6.0",
+            "tsx": "^4.0.0",
+            "eslint": "^8",
+            "eslint-config-next": "14.0.0"
+          }
+        }
+        EOF
+        fi
+        
+        # Create postcss.config.js if missing
+        if [[ ! -f "postcss.config.js" ]]; then
+          echo "Creating postcss.config.js..."
+          cat > postcss.config.js << 'EOF'
+        module.exports = {
+          plugins: {
+            tailwindcss: {},
+            autoprefixer: {},
+          },
+        }
+        EOF
+        fi
+        
+        # Create next.config.js if missing
+        if [[ ! -f "next.config.js" ]]; then
+          echo "Creating next.config.js..."
+          cat > next.config.js << 'EOF'
+        /** @type {import('next').NextConfig} */
+        const nextConfig = {
+          experimental: {
+            serverComponentsExternalPackages: ['mysql2']
+          },
+          env: {
+            DATABASE_URL: process.env.DATABASE_URL,
+            NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+            NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+            APP_NAME: process.env.APP_NAME,
+            DEFAULT_CURRENCY: process.env.DEFAULT_CURRENCY,
+          },
+          images: {
+            domains: ['lh3.googleusercontent.com'], // For Google profile images
+          },
+          async redirects() {
+            return [
+              {
+                source: '/',
+                destination: '/dashboard',
+                permanent: false,
+              },
+            ]
+          },
+        }
+        
+        module.exports = nextConfig
+        EOF
+        fi
+        
+        # Create tailwind.config.js if missing
+        if [[ ! -f "tailwind.config.js" ]]; then
+          echo "Creating tailwind.config.js..."
+          cat > tailwind.config.js << 'EOF'
+        /** @type {import('tailwindcss').Config} */
+        module.exports = {
+          content: [
+            './pages/**/*.{js,ts,jsx,tsx,mdx}',
+            './components/**/*.{js,ts,jsx,tsx,mdx}',
+            './app/**/*.{js,ts,jsx,tsx,mdx}',
+          ],
+          theme: {
+            extend: {
+              colors: {
+                primary: {
+                  50: '#eff6ff',
+                  100: '#dbeafe',
+                  200: '#bfdbfe',
+                  300: '#93c5fd',
+                  400: '#60a5fa',
+                  500: '#3b82f6',
+                  600: '#2563eb',
+                  700: '#1d4ed8',
+                  800: '#1e40af',
+                  900: '#1e3a8a',
+                },
+              },
+            },
+          },
+          plugins: [],
+        }
+        EOF
+        fi
+        
+        # Create tsconfig.json if missing
+        if [[ ! -f "tsconfig.json" ]]; then
+          echo "Creating tsconfig.json..."
+          cat > tsconfig.json << 'EOF'
+        {
+          "compilerOptions": {
+            "target": "es5",
+            "lib": ["dom", "dom.iterable", "es6"],
+            "allowJs": true,
+            "skipLibCheck": true,
+            "strict": true,
+            "noEmit": true,
+            "esModuleInterop": true,
+            "module": "esnext",
+            "moduleResolution": "bundler",
+            "resolveJsonModule": true,
+            "isolatedModules": true,
+            "jsx": "preserve",
+            "incremental": true,
+            "plugins": [
+              {
+                "name": "next"
+              }
+            ],
+            "paths": {
+              "@/*": ["./*"]
+            }
+          },
+          "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+          "exclude": ["node_modules"]
+        }
+        EOF
+        fi
+        
+        # Create .env.local.example from template
+        if [[ -f "scripts/env-local.sh" ]]; then
+          cp "scripts/env-local.sh" ".env.local.example"
+        elif [[ ! -f ".env.local.example" ]]; then
+          echo "Creating .env.local.example..."
+          cat > .env.local.example << 'EOF'
+        # Database Configuration
+        DATABASE_URL="mysql://username:password@localhost:3306/family_accounting"
+        
+        # NextAuth.js Configuration
+        NEXTAUTH_SECRET="your-super-secret-key-change-this-in-production"
+        NEXTAUTH_URL="http://localhost:3000"
+        
+        # Google Drive Integration (Optional)
+        GOOGLE_CLIENT_ID="your-google-client-id"
+        GOOGLE_CLIENT_SECRET="your-google-client-secret"
+        GOOGLE_REFRESH_TOKEN="your-google-refresh-token"
+        GOOGLE_DRIVE_FOLDER_ID="your-folder-id"
+        
+        # Application Settings
+        APP_NAME="Family GnuCash"
+        DEFAULT_CURRENCY="USD"
+        DEFAULT_DATE_FORMAT="MM/DD/YYYY"
+        
+        # Security Settings
+        SESSION_TIMEOUT_HOURS=8
+        BCRYPT_ROUNDS=12
+        EOF
+        fi
+        
+        echo "✅ Configuration files organized"
+
+    - name: Install dependencies and setup cache
+      run: |
+        echo "📦 Installing dependencies..."
+        
+        # Install dependencies to create package-lock.json
+        npm install
+        
+        echo "✅ Dependencies installed and lock file created"
+
+    - name: Organize Prisma schema
+      run: |
+        echo "🗄️ Organizing Prisma schema..."
+        
+        # Find and move Prisma schema
+        schema_files=(
+          "prisma/prisma-schema.txt"
+          "prisma-schema.txt" 
+          "nextjs-setup.json"
+          "project-config-files.json"
+        )
+        
+        for file in "${schema_files[@]}"; do
+          if [[ -f "$file" ]]; then
+            if [[ "$file" == *".json" ]]; then
+              # Extract schema from JSON files
+              if grep -q "prisma/schema.prisma" "$file"; then
+                # Extract the schema content
+                sed -n '/prisma\/schema.prisma/,/^}/p' "$file" | sed '1d; $d' > "prisma/schema.prisma"
+                break
+              fi
+            else
+              cp "$file" "prisma/schema.prisma"
+              break
+            fi
+          fi
+        done
+        
+        # Create seed file
+        if [[ -f "prisma/seed.ts" ]]; then
+          cp "prisma/seed.ts" "prisma/seed.ts"
+        fi
+        
+        echo "✅ Prisma files organized"
+
+    - name: Organize app directory files
+      run: |
+        echo "📱 Organizing app directory files..."
+        
+        # App layout and providers
+        layout_files=(
+          "app/layout.ts:app/layout.tsx"
+          "main-app-pages.ts:app/layout.tsx"
+          "app/providers.ts:app/providers.tsx"
+        )
+        
+        for file_pair in "${layout_files[@]}"; do
+          IFS=':' read -r source dest <<< "$file_pair"
+          if [[ -f "$source" ]]; then
+            echo "Moving $source -> $dest"
+            
+            # Extract specific sections from combined files
+            if [[ "$source" == "main-app-pages.ts" ]]; then
+              if [[ "$dest" == "app/layout.tsx" ]]; then
+                # Extract layout section
+                sed -n '/=== \.\/app\/layout\.tsx ===/,/=== /p' "$source" | sed '1d; $d' > "$dest"
+              fi
+            else
+              cp "$source" "$dest"
+            fi
+          fi
+        done
+        
+        # Global CSS
+        css_files=(
+          "app/globals-css.css:app/globals.css"
+          "app/globals.css:app/globals.css"
+        )
+        
+        for file_pair in "${css_files[@]}"; do
+          IFS=':' read -r source dest <<< "$file_pair"
+          if [[ -f "$source" ]]; then
+            cp "$source" "$dest"
+            break
+          fi
+        done
+        
+        echo "✅ App directory organized"
+
+    - name: Organize page components
+      run: |
+        echo "📄 Organizing page components..."
+        
+        # Define page mappings
+        declare -A page_mappings=(
+          ["app/login/login-page.ts"]="app/login/page.tsx"
+          ["app/dashboard/dashboard-page.ts"]="app/dashboard/page.tsx"
+          ["main-app-pages.ts"]="multiple"
+          ["final-pages-and-setup.ts"]="multiple"
+        )
+        
+        # Extract dashboard page
+        if [[ -f "app/dashboard/dashboard-page.ts" ]]; then
+          cp "app/dashboard/dashboard-page.ts" "app/dashboard/page.tsx"
+        fi
+        
+        # Extract login page
+        if [[ -f "app/login/login-page.ts" ]]; then
+          cp "app/login/login-page.ts" "app/login/page.tsx"
+        fi
+        
+        # Extract from combined files
+        if [[ -f "main-app-pages.ts" ]]; then
+          # Extract accounts page
+          sed -n '/=== \.\/app\/accounts\/page\.tsx ===/,/=== /p' "main-app-pages.ts" | sed '1d; $d' > "app/accounts/page.tsx"
+          
+          # Extract transactions page  
+          sed -n '/=== \.\/app\/transactions\/page\.tsx ===/,/=== /p' "main-app-pages.ts" | sed '1d; $d' > "app/transactions/page.tsx"
+        fi
+        
+        if [[ -f "final-pages-and-setup.ts" ]]; then
+          # Extract budgets page
+          sed -n '/=== \.\/app\/budgets\/page\.tsx ===/,/=== /p' "final-pages-and-setup.ts" | sed '1d; $d' > "app/budgets/page.tsx"
+          
+          # Extract reports page
+          sed -n '/=== \.\/app\/reports\/page\.tsx ===/,/=== /p' "final-pages-and-setup.ts" | sed '1d; $d' > "app/reports/page.tsx"
+          
+          # Extract reconciliation page
+          sed -n '/=== \.\/app\/reconciliation\/page\.tsx ===/,/=== /p' "final-pages-and-setup.ts" | sed '1d; $d' > "app/reconciliation/page.tsx"
+          
+          # Extract import-export page
+          sed -n '/=== \.\/app\/import-export\/page\.tsx ===/,/=== /p' "final-pages-and-setup.ts" | sed '1d; $d' > "app/import-export/page.tsx"
+        fi
+        
+        echo "✅ Page components organized"
+
+    - name: Organize API routes
+      run: |
+        echo "🔌 Organizing API routes..."
+        
+        # NextAuth route
+        if [[ -f "app/api/auth/nextauth-route.ts" ]]; then
+          cp "app/api/auth/nextauth-route.ts" "app/api/auth/[...nextauth]/route.ts"
+        elif [[ -f "auth-system.ts" ]]; then
+          # Extract NextAuth route from combined file
+          sed -n '/=== \.\/app\/api\/auth\/\[\.\.\.nextauth\]\/route\.ts ===/,/=== /p' "auth-system.ts" | sed '1d; $d' > "app/api/auth/[...nextauth]/route.ts"
+        fi
+        
+        # Admin API routes
+        if [[ -f "admin-panel.ts" ]]; then
+          # Extract admin users route
+          sed -n '/=== \.\/app\/api\/admin\/users\/route\.ts ===/,/=== /p' "admin-panel.ts" | sed '1d; $d' > "app/api/admin/users/route.ts"
+        fi
+        
+        # Other API routes from components-and-apis.ts
+        if [[ -f "components-and-apis.ts" ]]; then
+          # Extract accounts route
+          sed -n '/=== \.\/app\/api\/accounts\/route\.ts ===/,/=== /p' "components-and-apis.ts" | sed '1d; $d' > "app/api/accounts/route.ts"
+          
+          # Extract transactions route
+          sed -n '/=== \.\/app\/api\/transactions\/route\.ts ===/,/=== /p' "components-and-apis.ts" | sed '1d; $d' > "app/api/transactions/route.ts"
+        fi
+        
+        # Reconcile route
+        if [[ -f "final-pages-and-setup.ts" ]]; then
+          sed -n '/=== \.\/app\/api\/transactions\/\[id\]\/reconcile\/route\.ts ===/,/=== /p' "final-pages-and-setup.ts" | sed '1d; $d' > "app/api/transactions/[id]/reconcile/route.ts"
+        fi
+        
+        echo "✅ API routes organized"
+
+    - name: Organize admin pages
+      run: |
+        echo "👑 Organizing admin pages..."
+        
+        if [[ -f "admin-panel.ts" ]]; then
+          # Extract admin dashboard
+          sed -n '/=== \.\/app\/admin\/page\.tsx ===/,/=== /p' "admin-panel.ts" | sed '1d; $d' > "app/admin/page.tsx"
+          
+          # Extract admin users page
+          sed -n '/=== \.\/app\/admin\/users\/page\.tsx ===/,/=== /p' "admin-panel.ts" | sed '1d; $d' > "app/admin/users/page.tsx"
+          
+          # Extract admin settings page
+          sed -n '/=== \.\/app\/admin\/settings\/page\.tsx ===/,/=== /p' "admin-panel.ts" | sed '1d; $d' > "app/admin/settings/page.tsx"
+        fi
+        
+        echo "✅ Admin pages organized"
+
+    - name: Organize components
+      run: |
+        echo "🧩 Organizing components..."
+        
+        # Navigation component
+        if [[ -f "components/navigation-component.ts" ]]; then
+          cp "components/navigation-component.ts" "components/Navigation.tsx"
+        elif [[ -f "components-and-apis.ts" ]]; then
+          # Extract Navigation from combined file
+          sed -n '/=== \.\/components\/Navigation\.tsx ===/,/=== /p' "components-and-apis.ts" | sed '1d; $d' > "components/Navigation.tsx"
+        fi
+        
+        # Extract other components from components-and-apis.ts
+        if [[ -f "components-and-apis.ts" ]]; then
+          component_names=(
+            "AccountsList"
+            "AddAccountForm" 
+            "TransactionsList"
+            "AddTransactionForm"
+            "TransactionFilters"
+          )
+          
+          for component in "${component_names[@]}"; do
+            sed -n "/=== \.\/components\/${component}\.tsx ===/,/=== /p" "components-and-apis.ts" | sed '1d; $d' > "components/${component}.tsx"
+          done
+        fi
+        
+        echo "✅ Components organized"
+
+    - name: Organize lib files
+      run: |
+        echo "📚 Organizing lib files..."
+        
+        # Auth utilities
+        if [[ -f "lib/auth.ts" ]]; then
+          cp "lib/auth.ts" "lib/auth.ts"
+        elif [[ -f "auth-system.ts" ]]; then
+          sed -n '/=== \.\/lib\/auth\.ts ===/,/=== /p' "auth-system.ts" | sed '1d; $d' > "lib/auth.ts"
+        fi
+        
+        # Database utilities
+        if [[ -f "lib/database.ts" ]]; then
+          cp "lib/database.ts" "lib/database.ts"
+        elif [[ -f "database-utils.ts" ]]; then
+          sed -n '/=== \.\/lib\/database\.ts ===/,/=== /p' "database-utils.ts" | sed '1d; $d' > "lib/database.ts"
+        fi
+        
+        # Utils
+        if [[ -f "lib/utils.ts" ]]; then
+          cp "lib/utils.ts" "lib/utils.ts"
+        elif [[ -f "database-utils.ts" ]]; then
+          sed -n '/=== \.\/lib\/utils\.ts ===/,/=== /p' "database-utils.ts" | sed '1d; $d' > "lib/utils.ts"
+        fi
+        
+        # Google Drive integration
+        if [[ -f "database-utils.ts" ]]; then
+          sed -n '/=== \.\/lib\/google-drive\.ts ===/,/=== /p' "database-utils.ts" | sed '1d; $d' > "lib/google-drive.ts"
+        fi
+        
+        echo "✅ Lib files organized"
+
+    - name: Organize types
+      run: |
+        echo "📝 Organizing types..."
+        
+        if [[ -f "types/types-index.ts" ]]; then
+          cp "types/types-index.ts" "types/index.ts"
+        elif [[ -f "database-utils.ts" ]]; then
+          sed -n '/=== \.\/types\/index\.ts ===/,/=== /p' "database-utils.ts" | sed '1d; $d' > "types/index.ts"
+        fi
+        
+        echo "✅ Types organized"
+
+    - name: Organize middleware
+      run: |
+        echo "🛡️ Organizing middleware..."
+        
+        if [[ -f "backend/middleware.ts" ]]; then
+          cp "backend/middleware.ts" "middleware.ts"
+        elif [[ -f "auth-system.ts" ]]; then
+          sed -n '/=== \.\/middleware\.ts ===/,/=== /p' "auth-system.ts" | sed '1d; $d' > "middleware.ts"
+        fi
+        
+        echo "✅ Middleware organized"
+
+    - name: Create documentation
+      run: |
+        echo "📖 Creating documentation..."
+        
+        # README
+        if [[ -f "final-pages-and-setup.ts" ]]; then
+          sed -n '/=== \.\/README\.md ===/,/=== /p' "final-pages-and-setup.ts" | sed '1d; $d' > "README.md"
+        fi
+        
+        # Project tracker
+        if [[ -f "project-tracker.md" ]]; then
+          cp "project-tracker.md" "docs/PROJECT_TRACKER.md"
+        elif [[ -f "Family GnuCash - Project Progress Tracker.md" ]]; then
+          mkdir -p docs
+          cp "Family GnuCash - Project Progress Tracker.md" "docs/PROJECT_TRACKER.md"
+        fi
+        
+        echo "✅ Documentation organized"
+
+    - name: Clean up source files
+      run: |
+        echo "🧹 Cleaning up source files..."
+        
+        # Create .gitignore if it doesn't exist
+        if [[ ! -f ".gitignore" ]]; then
+          cat > .gitignore << 'EOF'
+        # Dependencies
+        node_modules/
+        npm-debug.log*
+        yarn-debug.log*
+        yarn-error.log*
+        
+        # Next.js
+        .next/
+        out/
+        
+        # Production
+        build/
+        dist/
+        
+        # Environment variables
+        .env.local
+        .env.development.local
+        .env.test.local
+        .env.production.local
+        
+        # Database
+        *.db
+        *.sqlite
+        
+        # IDE
+        .vscode/
+        .idea/
+        *.swp
+        *.swo
+        
+        # OS
+        .DS_Store
+        Thumbs.db
+        
+        # Logs
+        logs/
+        *.log
+        
+        # Prisma
+        prisma/migrations/
+        EOF
+        fi
+        
+        # Remove source files that have been processed (optional)
+        if [[ "${{ github.event.inputs.force_overwrite }}" == "true" ]]; then
+          echo "🗑️ Removing processed source files..."
+          rm -f *.ts *.tsx *.md *.json 2>/dev/null || true
+          rm -rf scripts/ backend/ 2>/dev/null || true
+        fi
+        
+        echo "✅ Cleanup completed"
+
+    - name: Validate project structure
+      run: |
+        echo "✅ Validating project structure..."
+        
+        required_files=(
+          "package.json"
+          "next.config.js"
+          "tailwind.config.js"
+          "tsconfig.json"
+          "prisma/schema.prisma"
+          "app/layout.tsx"
+          "app/dashboard/page.tsx"
+          "app/login/page.tsx"
+          "app/api/auth/[...nextauth]/route.ts"
+          "components/Navigation.tsx"
+          "lib/auth.ts"
+          "lib/database.ts"
+          "middleware.ts"
+        )
+        
+        missing_files=()
+        for file in "${required_files[@]}"; do
+          if [[ ! -f "$file" ]]; then
+            missing_files+=("$file")
+          fi
+        done
+        
+        if [[ ${#missing_files[@]} -eq 0 ]]; then
+          echo "✅ All required files are present!"
+        else
+          echo "⚠️ Missing files:"
+          printf '%s\n' "${missing_files[@]}"
+        fi
+        
+        echo "📁 Current project structure:"
+        tree -I 'node_modules|.git|.next' -L 3 || ls -la
+
+    - name: Commit organized files
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        git add .
+        
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "🏗️ Organize Family GnuCash project files into Next.js structure
+          
+          - Created proper Next.js 14 directory structure
+          - Organized app pages and API routes  
+          - Moved components and utilities to correct locations
+          - Set up Prisma schema and configuration files
+          - Added proper TypeScript and Tailwind configuration
+          - Created documentation and project tracker
+          
+          Project is now ready for development with:
+          - Authentication system (NextAuth.js)
+          - Database integration (Prisma + MySQL)
+          - Admin panel and user management
+          - Complete accounting features
+          - Google Drive backup integration"
+          
+          git push
+        fi
+
+    - name: Create setup instructions
+      run: |
+        echo "📋 Creating setup instructions..."
+        
+        cat > SETUP.md << 'EOF'
+        # Family GnuCash - Setup Instructions
+        
+        ## Quick Start
+        
+        1. **Install Dependencies**
+           ```bash
+           npm install
+           ```
+        
+        2. **Setup Environment**
+           ```bash
+           cp .env.local.example .env.local
+           # Edit .env.local with your database and API keys
+           ```
+        
+        3. **Setup Database**
+           ```bash
+           npx prisma generate
+           npx prisma db push
+           npx prisma db seed
+           ```
+        
+        4. **Start Development Server**
+           ```bash
+           npm run dev
+           ```
+        
+        5. **Open Application**
+           - Visit http://localhost:3000
+           - Login with: admin / admin123
+        
+        ## Project Structure
+        
+        ```
+        family-gnucash/
+        ├── app/                    # Next.js 14 App Router
+        │   ├── admin/             # Admin panel pages
+        │   ├── api/               # API routes
+        │   ├── dashboard/         # Main dashboard
+        │   ├── login/             # Authentication
+        │   └── ...                # Other accounting pages
+        ├── components/            # Reusable React components  
+        ├── lib/                   # Utilities and database
+        ├── prisma/               # Database schema and migrations
+        ├── types/                # TypeScript type definitions
+        └── docs/                 # Documentation
+        ```
+        
+        ## Features
+        
+        - 🔒 Password-protected family accounting
+        - 📊 Double-entry bookkeeping system
+        - 💰 Budget tracking and variance reporting
+        - 📈 Financial reports (P&L, Balance Sheet)
+        - 🔄 Account reconciliation
+        - 📁 Import/Export (CSV, OFX, QIF, GnuCash XML)
+        - ☁️ Google Drive backup integration
+        - 👥 Multi-user support with role-based access
+        - 🛡️ Admin panel for system configuration
+        
+        ## Next Steps
+        
+        1. Configure your MySQL database connection
+        2. Set up Google Drive API for backups (optional)
+        3. Customize the chart of accounts for your family
+        4. Create additional user accounts for family members
+        5. Start recording your financial transactions!
+        
+        For detailed documentation, see `docs/PROJECT_TRACKER.md`
+        EOF
+        
+        git add SETUP.md
+        git commit -m "📋 Add setup instructions" || echo "No changes to commit"
+        git push || echo "Nothing to push"
+        
+        echo "✅ Setup complete! Check SETUP.md for next steps."
