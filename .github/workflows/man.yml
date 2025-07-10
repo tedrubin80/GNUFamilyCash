@@ -18,7 +18,6 @@
             if [[ "$file" == *".json" ]]; then
               # Extract schema from JSON files
               if grep -q "prisma/schema.prisma" "$file"; then
-                echo "Extracting schema from JSON file: $file"
                 # Try to extract the schema content between the prisma section
                 awk '/prisma\/schema\.prisma.*`/{flag=1; next} /`$/{flag=0} flag' "$file" > "prisma/schema.prisma"
                 
