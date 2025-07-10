@@ -1,5 +1,5 @@
 - name: Organize Prisma schema
-      run: |
+      run:
         echo "🗄️ Organizing Prisma schema..."
         
         # Find and move Prisma schema
