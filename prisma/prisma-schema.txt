@@ -1,0 +1,125 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  name      String
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  accounts     Account[]
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@map("users")
+}
+
+model Account {
+  id             String   @id @default(cuid())
+  name           String
+  code           String?
+  type           AccountType
+  balance        Decimal  @default(0) @db.Decimal(15, 2)
+  parentId       String?
+  reconciled     Boolean  @default(false)
+  lastReconciled DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  parent       Account?       @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children     Account[]      @relation("AccountHierarchy")
+  splits       TransactionSplit[]
+  budgetItems  BudgetItem[]
+
+  @@map("accounts")
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  date        DateTime
+  description String
+  reconciled  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  splits TransactionSplit[]
+
+  @@map("transactions")
+}
+
+model TransactionSplit {
+  id     String  @id @default(cuid())
+  debit  Decimal @default(0) @db.Decimal(15, 2)
+  credit Decimal @default(0) @db.Decimal(15, 2)
+
+  // Relations
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  transactionId String
+  account       Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId     String
+
+  @@map("transaction_splits")
+}
+
+model Budget {
+  id        String   @id @default(cuid())
+  name      String
+  period    String   // YYYY-MM format
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  items BudgetItem[]
+
+  @@map("budgets")
+}
+
+model BudgetItem {
+  id       String  @id @default(cuid())
+  budgeted Decimal @db.Decimal(15, 2)
+  actual   Decimal @default(0) @db.Decimal(15, 2)
+
+  // Relations
+  budget    Budget  @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  budgetId  String
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountId String
+
+  @@map("budget_items")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  READONLY
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  INCOME
+  EXPENSE
+  EQUITY
+}
