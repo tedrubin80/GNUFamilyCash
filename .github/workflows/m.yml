@@ -1,623 +1,178 @@
-name: Organize Family GnuCash Project
+#!/bin/bash
 
-on:
-  workflow_dispatch:
-    inputs:
-      debug_mode:
-        description: 'Enable debug mode'
-        required: false
-        default: false
-        type: boolean
-  push:
-    branches: [ main, master ]
-    paths:
-      - '**.ts'
-      - '**.tsx'
-      - '**.js'
-      - '**.json'
-      - '**.md'
-      - '**.css'
-      - '.github/workflows/organize-files.yml'
+# fix-family-gnucash.sh
+# Script to fix and organize Family GnuCash project files
 
-jobs:
-  organize:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+set -e
 
-    - name: List all files for debugging
-      if: ${{ inputs.debug_mode }}
-      run: |
-        echo "📋 All files in repository:"
-        find . -type f -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.md" | grep -v node_modules | sort
+echo "🔧 Fixing Family GnuCash project..."
 
-    - name: Create Next.js directory structure
-      run: |
-        echo "🏗️ Creating directory structure..."
-        
-        # App directories
-        mkdir -p app/{admin,api,accounts,budgets,dashboard,login,reports,transactions,reconciliation,import-export}
-        mkdir -p app/admin/{users,settings}
-        mkdir -p app/api/{auth,admin,accounts,transactions,budgets,import,export}
-        mkdir -p "app/api/auth/[...nextauth]"
-        mkdir -p app/api/admin/{users,settings}
-        mkdir -p "app/api/transactions/[id]/reconcile"
-        
-        # Other directories
-        mkdir -p components
-        mkdir -p lib
-        mkdir -p prisma
-        mkdir -p types
-        mkdir -p public
-        mkdir -p docs
-        
-        echo "✅ Directories created"
+# First, remove all corrupted files
+echo "🗑️ Removing corrupted files..."
+rm -f app/accounts/page.tsx
+rm -f app/admin/page.tsx
+rm -f app/admin/users/page.tsx
+rm -f app/admin/settings/page.tsx
+rm -f app/api/admin/users/route.ts
+rm -f app/import-export/page.tsx
+rm -f "app/api/transactions/[id]/reconcile/route.ts"
 
-    - name: Process configuration files
-      run: |
-        echo "⚙️ Processing configuration files..."
-        
-        # Handle package.json variants
-        if [ -f "package-json.json" ]; then
-          mv "package-json.json" "package.json"
-        elif [ -f "scripts/package-json.json" ]; then
-          mv "scripts/package-json.json" "package.json"
-        elif [ -f "project-config-files.json" ]; then
-          # Extract package.json content
-          sed -n '/"name": "family-gnucash"/,/^}/p' "project-config-files.json" > "package.json"
-        fi
-        
-        # If no package.json found, create one
-        if [ ! -f "package.json" ]; then
-          cat > package.json << 'EOF'
-        {
-          "name": "family-gnucash",
-          "version": "0.1.0",
-          "private": true,
-          "scripts": {
-            "dev": "next dev",
-            "build": "next build",
-            "start": "next start",
-            "lint": "next lint",
-            "db:generate": "prisma generate",
-            "db:push": "prisma db push",
-            "db:migrate": "prisma migrate dev",
-            "db:studio": "prisma studio",
-            "db:seed": "tsx prisma/seed.ts"
-          },
-          "dependencies": {
-            "next": "14.0.0",
-            "react": "^18",
-            "react-dom": "^18",
-            "next-auth": "^4.24.5",
-            "@prisma/client": "^5.6.0",
-            "@next-auth/prisma-adapter": "^1.0.7",
-            "bcryptjs": "^2.4.3",
-            "mysql2": "^3.6.5",
-            "googleapis": "^128.0.0",
-            "csv-parser": "^3.0.0",
-            "papaparse": "^5.4.1",
-            "date-fns": "^2.30.0",
-            "zod": "^3.22.4",
-            "lucide-react": "^0.263.1",
-            "clsx": "^2.0.0",
-            "tailwindcss": "^3.3.0",
-            "autoprefixer": "^10.0.1",
-            "postcss": "^8"
-          },
-          "devDependencies": {
-            "typescript": "^5",
-            "@types/node": "^20",
-            "@types/react": "^18",
-            "@types/react-dom": "^18",
-            "@types/bcryptjs": "^2.4.6",
-            "@types/papaparse": "^5.3.14",
-            "prisma": "^5.6.0",
-            "tsx": "^4.0.0",
-            "eslint": "^8",
-            "eslint-config-next": "14.0.0"
-          }
-        }
-        EOF
-        fi
-        
-        # Handle other config files
-        [ -f "next-config.js" ] && mv "next-config.js" "next.config.js"
-        [ -f "tailwind-config.js" ] && mv "tailwind-config.js" "tailwind.config.js"
-        [ -f "postcss-config.js" ] && mv "postcss-config.js" "postcss.config.js"
-        
-        # Create missing configs if needed
-        [ ! -f "next.config.js" ] && cat > next.config.js << 'EOF'
-        /** @type {import('next').NextConfig} */
-        const nextConfig = {
-          experimental: {
-            serverComponentsExternalPackages: ['mysql2']
-          },
-          images: {
-            domains: ['lh3.googleusercontent.com'],
-          },
-        }
-        module.exports = nextConfig
-        EOF
-        
-        [ ! -f "tailwind.config.js" ] && cat > tailwind.config.js << 'EOF'
-        /** @type {import('tailwindcss').Config} */
-        module.exports = {
-          content: [
-            './app/**/*.{js,ts,jsx,tsx}',
-            './components/**/*.{js,ts,jsx,tsx}',
-          ],
-          theme: {
-            extend: {},
-          },
-          plugins: [],
-        }
-        EOF
-        
-        [ ! -f "postcss.config.js" ] && cat > postcss.config.js << 'EOF'
-        module.exports = {
-          plugins: {
-            tailwindcss: {},
-            autoprefixer: {},
-          },
-        }
-        EOF
-        
-        echo "✅ Configuration files processed"
+# Remove duplicate workflows
+echo "🗑️ Removing duplicate workflows..."
+rm -f .github/workflows/main.yml
+rm -f .github/workflows/organize-files.yml
 
-    - name: Extract and organize source files
-      run: |
-        echo "📦 Organizing source files..."
-        
-        # Function to extract sections from combined files
-        extract_section() {
-          local source="$1"
-          local marker="$2"
-          local dest="$3"
-          
-          if [ -f "$source" ]; then
-            # Create directory if needed
-            mkdir -p "$(dirname "$dest")"
-            
-            # Extract content between markers
-            sed -n "/=== \.\\/$marker ===/,/=== \./p" "$source" | sed '1d;$d' > "$dest"
-            
-            if [ -s "$dest" ]; then
-              echo "✅ Extracted $dest"
-            else
-              rm -f "$dest"
-            fi
-          fi
-        }
-        
-        # Process main app pages
-        if [ -f "main-app-pages.ts" ]; then
-          extract_section "main-app-pages.ts" "app/layout.tsx" "app/layout.tsx"
-          extract_section "main-app-pages.ts" "app/globals.css" "app/globals.css"
-          extract_section "main-app-pages.ts" "app/providers.tsx" "app/providers.tsx"
-          extract_section "main-app-pages.ts" "app/accounts/page.tsx" "app/accounts/page.tsx"
-          extract_section "main-app-pages.ts" "app/transactions/page.tsx" "app/transactions/page.tsx"
-        fi
-        
-        # Process auth system
-        if [ -f "auth-system.ts" ]; then
-          extract_section "auth-system.ts" "lib/auth.ts" "lib/auth.ts"
-          extract_section "auth-system.ts" "app/api/auth/\[...nextauth\]/route.ts" "app/api/auth/[...nextauth]/route.ts"
-          extract_section "auth-system.ts" "middleware.ts" "middleware.ts"
-        fi
-        
-        # Process components and APIs
-        if [ -f "components-and-apis.ts" ]; then
-          extract_section "components-and-apis.ts" "components/Navigation.tsx" "components/Navigation.tsx"
-          extract_section "components-and-apis.ts" "components/AccountsList.tsx" "components/AccountsList.tsx"
-          extract_section "components-and-apis.ts" "components/AddAccountForm.tsx" "components/AddAccountForm.tsx"
-          extract_section "components-and-apis.ts" "components/TransactionsList.tsx" "components/TransactionsList.tsx"
-          extract_section "components-and-apis.ts" "components/AddTransactionForm.tsx" "components/AddTransactionForm.tsx"
-          extract_section "components-and-apis.ts" "components/TransactionFilters.tsx" "components/TransactionFilters.tsx"
-          extract_section "components-and-apis.ts" "app/api/accounts/route.ts" "app/api/accounts/route.ts"
-          extract_section "components-and-apis.ts" "app/api/transactions/route.ts" "app/api/transactions/route.ts"
-        fi
-        
-        # Process database utils
-        if [ -f "database-utils.ts" ]; then
-          extract_section "database-utils.ts" "lib/database.ts" "lib/database.ts"
-          extract_section "database-utils.ts" "lib/utils.ts" "lib/utils.ts"
-          extract_section "database-utils.ts" "lib/google-drive.ts" "lib/google-drive.ts"
-          extract_section "database-utils.ts" "types/index.ts" "types/index.ts"
-        fi
-        
-        # Process admin panel
-        if [ -f "admin-panel.ts" ]; then
-          extract_section "admin-panel.ts" "app/admin/page.tsx" "app/admin/page.tsx"
-          extract_section "admin-panel.ts" "app/admin/users/page.tsx" "app/admin/users/page.tsx"
-          extract_section "admin-panel.ts" "app/admin/settings/page.tsx" "app/admin/settings/page.tsx"
-          extract_section "admin-panel.ts" "app/api/admin/users/route.ts" "app/api/admin/users/route.ts"
-        fi
-        
-        # Process final pages
-        if [ -f "final-pages-and-setup.ts" ]; then
-          extract_section "final-pages-and-setup.ts" "app/budgets/page.tsx" "app/budgets/page.tsx"
-          extract_section "final-pages-and-setup.ts" "app/reports/page.tsx" "app/reports/page.tsx"
-          extract_section "final-pages-and-setup.ts" "app/reconciliation/page.tsx" "app/reconciliation/page.tsx"
-          extract_section "final-pages-and-setup.ts" "app/import-export/page.tsx" "app/import-export/page.tsx"
-          extract_section "final-pages-and-setup.ts" "app/api/transactions/\[id\]/reconcile/route.ts" "app/api/transactions/[id]/reconcile/route.ts"
-          extract_section "final-pages-and-setup.ts" "README.md" "README.md"
-        fi
-        
-        # Handle individual files
-        [ -f "app/dashboard/dashboard-page.ts" ] && mv "app/dashboard/dashboard-page.ts" "app/dashboard/page.tsx"
-        [ -f "app/login/login-page.ts" ] && mv "app/login/login-page.ts" "app/login/page.tsx"
-        [ -f "app/layout.ts" ] && mv "app/layout.ts" "app/layout.tsx"
-        [ -f "app/providers.ts" ] && mv "app/providers.ts" "app/providers.tsx"
-        [ -f "app/globals-css.css" ] && mv "app/globals-css.css" "app/globals.css"
-        [ -f "components/navigation-component.ts" ] && mv "components/navigation-component.ts" "components/Navigation.tsx"
-        [ -f "backend/middleware.ts" ] && mv "backend/middleware.ts" "middleware.ts"
-        
-        echo "✅ Source files organized"
+# Remove the incomplete setup.sh
+rm -f setup.sh
 
-    - name: Process Prisma schema
-      run: |
-        echo "🗄️ Setting up Prisma..."
+# Create clean directory structure
+echo "📁 Creating directory structure..."
+mkdir -p app/{admin,api,accounts,budgets,dashboard,login,reports,transactions,reconciliation,import-export}
+mkdir -p app/admin/{users,settings}
+mkdir -p app/api/{auth,admin,accounts,transactions,budgets,import,export}
+mkdir -p "app/api/auth/[...nextauth]"
+mkdir -p app/api/admin/{users,settings}
+mkdir -p "app/api/transactions/[id]/reconcile"
+mkdir -p components
+mkdir -p lib
+mkdir -p types
+mkdir -p public
+mkdir -p docs
+
+# Function to extract sections from combined files
+extract_section() {
+    local source_file=$1
+    local section_marker=$2
+    local dest_file=$3
+    
+    if [ -f "$source_file" ]; then
+        echo "📄 Extracting $dest_file from $source_file"
+        # Create directory if needed
+        mkdir -p "$(dirname "$dest_file")"
         
-        # Check various locations for schema
-        if [ -f "prisma/prisma-schema.txt" ]; then
-          mv "prisma/prisma-schema.txt" "prisma/schema.prisma"
-        elif [ -f "prisma-schema.txt" ]; then
-          mv "prisma-schema.txt" "prisma/schema.prisma"
-        elif [ -f "database-schema.prisma" ]; then
-          mv "database-schema.prisma" "prisma/schema.prisma"
-        fi
+        # Extract content between markers
+        awk -v marker="=== ./$section_marker ===" '
+            $0 ~ marker {found=1; next}
+            /^=== \./ && found {exit}
+            found {print}
+        ' "$source_file" > "$dest_file"
         
-        # Create schema if missing
-        if [ ! -f "prisma/schema.prisma" ]; then
-          cat > prisma/schema.prisma << 'EOF'
-        generator client {
-          provider = "prisma-client-js"
-        }
-
-        datasource db {
-          provider = "mysql"
-          url      = env("DATABASE_URL")
-        }
-
-        model User {
-          id            String    @id @default(cuid())
-          email         String    @unique
-          name          String?
-          password      String
-          role          UserRole  @default(USER)
-          createdAt     DateTime  @default(now())
-          updatedAt     DateTime  @updatedAt
-          
-          accounts      Account[]
-          transactions  Transaction[]
-          budgets       Budget[]
-          imports       Import[]
-        }
-
-        model Account {
-          id            String    @id @default(cuid())
-          name          String
-          type          AccountType
-          code          String    @unique
-          parentId      String?
-          balance       Decimal   @default(0) @db.Decimal(20, 2)
-          currency      String    @default("USD")
-          createdAt     DateTime  @default(now())
-          updatedAt     DateTime  @updatedAt
-          userId        String
-          
-          user          User      @relation(fields: [userId], references: [id])
-          parent        Account?  @relation("AccountHierarchy", fields: [parentId], references: [id])
-          children      Account[] @relation("AccountHierarchy")
-          debits        Transaction[] @relation("DebitAccount")
-          credits       Transaction[] @relation("CreditAccount")
-          
-          @@index([userId])
-          @@index([parentId])
-        }
-
-        model Transaction {
-          id            String    @id @default(cuid())
-          date          DateTime
-          description   String
-          amount        Decimal   @db.Decimal(20, 2)
-          debitId       String
-          creditId      String
-          reconciled    Boolean   @default(false)
-          createdAt     DateTime  @default(now())
-          updatedAt     DateTime  @updatedAt
-          userId        String
-          
-          user          User      @relation(fields: [userId], references: [id])
-          debitAccount  Account   @relation("DebitAccount", fields: [debitId], references: [id])
-          creditAccount Account   @relation("CreditAccount", fields: [creditId], references: [id])
-          
-          @@index([userId])
-          @@index([date])
-          @@index([debitId])
-          @@index([creditId])
-        }
-
-        model Budget {
-          id            String    @id @default(cuid())
-          name          String
-          startDate     DateTime
-          endDate       DateTime
-          categories    Json
-          createdAt     DateTime  @default(now())
-          updatedAt     DateTime  @updatedAt
-          userId        String
-          
-          user          User      @relation(fields: [userId], references: [id])
-          
-          @@index([userId])
-        }
-
-        model Import {
-          id            String    @id @default(cuid())
-          filename      String
-          type          ImportType
-          status        ImportStatus
-          data          Json?
-          errors        Json?
-          createdAt     DateTime  @default(now())
-          updatedAt     DateTime  @updatedAt
-          userId        String
-          
-          user          User      @relation(fields: [userId], references: [id])
-          
-          @@index([userId])
-        }
-
-        enum UserRole {
-          ADMIN
-          USER
-          VIEWER
-        }
-
-        enum AccountType {
-          ASSET
-          LIABILITY
-          EQUITY
-          INCOME
-          EXPENSE
-        }
-
-        enum ImportType {
-          CSV
-          OFX
-          QIF
-          GNUCASH_XML
-        }
-
-        enum ImportStatus {
-          PENDING
-          PROCESSING
-          COMPLETED
-          FAILED
-        }
-        EOF
-        fi
-        
-        echo "✅ Prisma schema ready"
-
-    - name: Create environment example
-      run: |
-        echo "🔐 Creating environment example..."
-        
-        if [ -f "scripts/env-local.sh" ]; then
-          cp "scripts/env-local.sh" ".env.local.example"
+        if [ -s "$dest_file" ]; then
+            echo "✅ Extracted $dest_file"
         else
-          cat > .env.local.example << 'EOF'
-        # Database
-        DATABASE_URL="mysql://username:password@localhost:3306/family_accounting"
-
-        # NextAuth
-        NEXTAUTH_SECRET="your-secret-key-here"
-        NEXTAUTH_URL="http://localhost:3000"
-
-        # Google Drive (Optional)
-        GOOGLE_CLIENT_ID=""
-        GOOGLE_CLIENT_SECRET=""
-        GOOGLE_REFRESH_TOKEN=""
-        GOOGLE_DRIVE_FOLDER_ID=""
-
-        # App Settings
-        APP_NAME="Family GnuCash"
-        DEFAULT_CURRENCY="USD"
-        EOF
+            echo "⚠️ No content found for $dest_file"
+            rm -f "$dest_file"
         fi
-        
-        echo "✅ Environment example created"
+    fi
+}
 
-    - name: Create additional files
-      run: |
-        echo "📝 Creating additional files..."
-        
-        # Create .gitignore
-        cat > .gitignore << 'EOF'
-        # Dependencies
-        node_modules
-        .pnp
-        .pnp.js
+# Extract from main-app-pages.ts
+echo "📦 Processing main-app-pages.ts..."
+extract_section "main-app-pages.ts" "app/layout.tsx" "app/layout.tsx"
+extract_section "main-app-pages.ts" "app/globals.css" "app/globals.css"
+extract_section "main-app-pages.ts" "app/providers.tsx" "app/providers.tsx"
+extract_section "main-app-pages.ts" "app/accounts/page.tsx" "app/accounts/page.tsx"
+extract_section "main-app-pages.ts" "app/transactions/page.tsx" "app/transactions/page.tsx"
 
-        # Testing
-        coverage
-        .nyc_output
+# Extract from auth-system.ts
+echo "📦 Processing auth-system.ts..."
+extract_section "auth-system.ts" "lib/auth.ts" "lib/auth.ts"
+extract_section "auth-system.ts" "app/api/auth/\[...nextauth\]/route.ts" "app/api/auth/[...nextauth]/route.ts"
+extract_section "auth-system.ts" "middleware.ts" "middleware.ts"
 
-        # Next.js
-        .next/
-        out/
+# Extract from components-and-apis.ts
+echo "📦 Processing components-and-apis.ts..."
+extract_section "components-and-apis.ts" "components/Navigation.tsx" "components/Navigation.tsx"
+extract_section "components-and-apis.ts" "components/AccountsList.tsx" "components/AccountsList.tsx"
+extract_section "components-and-apis.ts" "components/AddAccountForm.tsx" "components/AddAccountForm.tsx"
+extract_section "components-and-apis.ts" "components/TransactionsList.tsx" "components/TransactionsList.tsx"
+extract_section "components-and-apis.ts" "components/AddTransactionForm.tsx" "components/AddTransactionForm.tsx"
+extract_section "components-and-apis.ts" "components/TransactionFilters.tsx" "components/TransactionFilters.tsx"
+extract_section "components-and-apis.ts" "app/api/accounts/route.ts" "app/api/accounts/route.ts"
+extract_section "components-and-apis.ts" "app/api/transactions/route.ts" "app/api/transactions/route.ts"
 
-        # Production
-        build
-        dist
+# Extract from database-utils.ts
+echo "📦 Processing database-utils.ts..."
+extract_section "database-utils.ts" "lib/database.ts" "lib/database.ts"
+extract_section "database-utils.ts" "lib/utils.ts" "lib/utils.ts"
+extract_section "database-utils.ts" "lib/google-drive.ts" "lib/google-drive.ts"
+extract_section "database-utils.ts" "types/index.ts" "types/index.ts"
 
-        # Misc
-        .DS_Store
-        *.pem
+# Extract from admin-panel.ts
+echo "📦 Processing admin-panel.ts..."
+extract_section "admin-panel.ts" "app/admin/page.tsx" "app/admin/page.tsx"
+extract_section "admin-panel.ts" "app/admin/users/page.tsx" "app/admin/users/page.tsx"
+extract_section "admin-panel.ts" "app/admin/settings/page.tsx" "app/admin/settings/page.tsx"
+extract_section "admin-panel.ts" "app/api/admin/users/route.ts" "app/api/admin/users/route.ts"
 
-        # Debug
-        npm-debug.log*
-        yarn-debug.log*
-        yarn-error.log*
+# Extract from final-pages-and-setup.ts
+echo "📦 Processing final-pages-and-setup.ts..."
+extract_section "final-pages-and-setup.ts" "app/budgets/page.tsx" "app/budgets/page.tsx"
+extract_section "final-pages-and-setup.ts" "app/reports/page.tsx" "app/reports/page.tsx"
+extract_section "final-pages-and-setup.ts" "app/reconciliation/page.tsx" "app/reconciliation/page.tsx"
+extract_section "final-pages-and-setup.ts" "app/import-export/page.tsx" "app/import-export/page.tsx"
+extract_section "final-pages-and-setup.ts" "app/api/transactions/\[id\]/reconcile/route.ts" "app/api/transactions/[id]/reconcile/route.ts"
 
-        # Local env files
-        .env.local
-        .env.development.local
-        .env.test.local
-        .env.production.local
+# Handle individual files
+echo "📦 Processing individual files..."
+[ -f "app/dashboard/dashboard-page.ts" ] && mv "app/dashboard/dashboard-page.ts" "app/dashboard/page.tsx"
+[ -f "app/login/login-page.ts" ] && mv "app/login/login-page.ts" "app/login/page.tsx"
+[ -f "app/layout.ts" ] && mv "app/layout.ts" "app/layout.tsx"
+[ -f "app/providers.ts" ] && mv "app/providers.ts" "app/providers.tsx"
+[ -f "components/Navigation.tsx" ] || [ -f "components/navigation-component.ts" ] && mv "components/navigation-component.ts" "components/Navigation.tsx" 2>/dev/null || true
 
-        # Vercel
-        .vercel
+# Move documentation
+[ -f "Family GnuCash - Project Progress Tracker.md" ] && mv "Family GnuCash - Project Progress Tracker.md" "docs/PROJECT_TRACKER.md"
 
-        # TypeScript
-        *.tsbuildinfo
+# Validate critical files
+echo "✔️ Validating critical files..."
+critical_files=(
+    "app/layout.tsx"
+    "app/dashboard/page.tsx"
+    "app/login/page.tsx"
+    "app/api/auth/[...nextauth]/route.ts"
+    "components/Navigation.tsx"
+    "lib/auth.ts"
+    "lib/database.ts"
+    "middleware.ts"
+)
 
-        # Prisma
-        prisma/migrations/
-        EOF
-        
-        # Create README if missing
-        if [ ! -f "README.md" ]; then
-          cat > README.md << 'EOF'
-        # Family GnuCash
+missing=0
+for file in "${critical_files[@]}"; do
+    if [ ! -f "$file" ]; then
+        echo "❌ Missing: $file"
+        missing=$((missing + 1))
+    else
+        echo "✅ Found: $file"
+    fi
+done
 
-        A Next.js-based family accounting system inspired by GnuCash.
+echo ""
+echo "========================================"
+if [ $missing -eq 0 ]; then
+    echo "✅ All critical files extracted successfully!"
+else
+    echo "⚠️ Some files are missing. Check the source files."
+fi
+echo "========================================"
 
-        ## Features
+# Optional: Remove source files
+echo ""
+read -p "Remove source TypeScript files? (y/N) " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    rm -f main-app-pages.ts auth-system.ts components-and-apis.ts 
+    rm -f database-utils.ts admin-panel.ts final-pages-and-setup.ts
+    rm -f family-gnucash.tsx
+    echo "✅ Source files removed"
+fi
 
-        - 🔒 Secure authentication with NextAuth.js
-        - 📊 Double-entry bookkeeping
-        - 💰 Budget tracking
-        - 📈 Financial reports
-        - 🔄 Account reconciliation
-        - 📁 Import/Export (CSV, OFX, QIF, GnuCash XML)
-        - ☁️ Google Drive backup
-        - 👥 Multi-user support
-
-        ## Getting Started
-
-        1. Clone the repository
-        2. Copy `.env.local.example` to `.env.local` and configure
-        3. Install dependencies: `npm install`
-        4. Set up database: `npm run db:push`
-        5. Run development server: `npm run dev`
-
-        ## License
-
-        MIT
-        EOF
-        fi
-        
-        # Move documentation
-        [ -f "Family GnuCash - Project Progress Tracker.md" ] && mv "Family GnuCash - Project Progress Tracker.md" "docs/PROJECT_TRACKER.md"
-        [ -f "family-gnucash-file-organization.md" ] && mv "family-gnucash-file-organization.md" "docs/FILE_ORGANIZATION.md"
-        
-        echo "✅ Additional files created"
-
-    - name: Clean up old files
-      run: |
-        echo "🧹 Cleaning up..."
-        
-        # Remove duplicate workflows
-        rm -f .github/workflows/{sin.yml,242n.yml,man.yml,organize-files.yml}
-        
-        # Remove old/temporary files
-        rm -f setup.sh organize-family-gnucash.sh
-        
-        # List of source files that should be removed after extraction
-        source_files=(
-          "main-app-pages.ts"
-          "auth-system.ts"
-          "components-and-apis.ts"
-          "database-utils.ts"
-          "admin-panel.ts"
-          "final-pages-and-setup.ts"
-          "family-gnucash.tsx"
-          "project-config-files.json"
-          "package-json.json"
-        )
-        
-        for file in "${source_files[@]}"; do
-          [ -f "$file" ] && rm -f "$file" && echo "Removed $file"
-        done
-        
-        echo "✅ Cleanup complete"
-
-    - name: Validate structure
-      run: |
-        echo "✔️ Validating project structure..."
-        
-        required_files=(
-          "package.json"
-          "next.config.js"
-          "prisma/schema.prisma"
-          ".env.local.example"
-          ".gitignore"
-          "README.md"
-        )
-        
-        missing_files=()
-        for file in "${required_files[@]}"; do
-          if [ ! -f "$file" ]; then
-            missing_files+=("$file")
-          fi
-        done
-        
-        if [ ${#missing_files[@]} -eq 0 ]; then
-          echo "✅ All required files present!"
-        else
-          echo "⚠️ Missing files:"
-          printf '%s\n' "${missing_files[@]}"
-        fi
-        
-        echo ""
-        echo "📁 Project structure:"
-        find . -type f -name "*.tsx" -o -name "*.ts" -o -name "*.json" -o -name "*.prisma" | grep -v node_modules | sort
-
-    - name: Commit changes
-      run: |
-        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        
-        git add -A
-        
-        if git diff --staged --quiet; then
-          echo "No changes to commit"
-        else
-          git commit -m "🏗️ Organize Family GnuCash project structure
-
-        - Created Next.js 14 directory structure
-        - Organized all TypeScript/JavaScript files
-        - Set up Prisma schema and configuration
-        - Added environment example
-        - Created documentation structure
-        - Removed duplicate workflows
-        
-        The project is now properly structured and ready for development."
-          
-          git push
-        fi
-
-    - name: Summary
-      run: |
-        echo "========================================="
-        echo "✅ Family GnuCash Project Organization Complete!"
-        echo "========================================="
-        echo ""
-        echo "Next steps:"
-        echo "1. Review the organized structure"
-        echo "2. Configure your .env.local file"
-        echo "3. Install dependencies locally"
-        echo "4. Set up your MySQL database"
-        echo "5. Start developing!"
-        echo ""
-        echo "See README.md for detailed instructions."
+echo ""
+echo "🎉 Project structure fixed!"
+echo ""
+echo "Next steps:"
+echo "1. Review the extracted files"
+echo "2. Run: npm install"
+echo "3. Configure .env.local"
+echo "4. Set up your database"
+echo "5. Run: npm run dev"
