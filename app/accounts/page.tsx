@@ -7,7 +7,6 @@ export default async function AccountsPage() {
   const user = await requireAuth()
   const accounts = await getUserAccounts(user.id)
 
-  // Group accounts by type
   const groupedAccounts = accounts.reduce((acc, account) => {
     if (!acc[account.type]) {
       acc[account.type] = []
@@ -23,4 +22,11 @@ export default async function AccountsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Chart of Accounts</h1>
           <p className="text-gray-600">Manage your account structure</p>
         </div>
-        {(user.role
+        {(user.role === 'ADMIN' || user.role === 'USER') && (
+          <AddAccountForm accounts={accounts} />
+        )}
+      </div>
+      <AccountsList groupedAccounts={groupedAccounts} userRole={user.role} />
+    </div>
+  )
+}
