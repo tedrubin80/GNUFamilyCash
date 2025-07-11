@@ -224,3 +224,4 @@ For support and questions:
 
 ---
 
+**Family GnuCash** - Complete online accounting for modern families 💰📊
