@@ -21,9 +21,10 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  accounts     Account[]
-  transactions Transaction[]
-  budgets      Budget[]
+  accounts              Account[]
+  transactions          Transaction[]
+  budgets               Budget[]
+  scheduledTransactions ScheduledTransaction[]
 
   @@map("users")
 }
@@ -41,12 +42,14 @@ model Account {
   updatedAt      DateTime @updatedAt
 
   // Relations
-  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId       String
-  parent       Account?       @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children     Account[]      @relation("AccountHierarchy")
-  splits       TransactionSplit[]
-  budgetItems  BudgetItem[]
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           String
+  parent           Account?               @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children         Account[]              @relation("AccountHierarchy")
+  splits           TransactionSplit[]
+  budgetItems      BudgetItem[]
+  scheduledDebits  ScheduledTransaction[] @relation("ScheduledDebitAccount")
+  scheduledCredits ScheduledTransaction[] @relation("ScheduledCreditAccount")
 
   @@map("accounts")
 }
@@ -60,9 +63,10 @@ model Transaction {
   updatedAt   DateTime @updatedAt
 
   // Relations
-  user   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String
-  splits TransactionSplit[]
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId              String
+  splits              TransactionSplit[]
+  scheduledExecutions ScheduledExecution[]
 
   @@map("transactions")
 }
@@ -89,9 +93,9 @@ model Budget {
   updatedAt DateTime @updatedAt
 
   // Relations
-  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
-  items BudgetItem[]
+  items  BudgetItem[]
 
   @@map("budgets")
 }
@@ -110,6 +114,52 @@ model BudgetItem {
   @@map("budget_items")
 }
 
+model ScheduledTransaction {
+  id                String              @id @default(cuid())
+  name              String              // "Monthly Rent", "Netflix Subscription"
+  description       String?
+  amount            Decimal             @db.Decimal(15, 2)
+  frequency         ScheduleFrequency
+  startDate         DateTime
+  endDate           DateTime?           // Optional end date
+  nextExecutionDate DateTime
+  isActive          Boolean             @default(true)
+  autoExecute       Boolean             @default(false) // Auto-create transactions
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  // Transaction template
+  debitAccountId    String
+  creditAccountId   String
+  debitAccount      Account             @relation("ScheduledDebitAccount", fields: [debitAccountId], references: [id])
+  creditAccount     Account             @relation("ScheduledCreditAccount", fields: [creditAccountId], references: [id])
+
+  // Relations
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String
+  executions        ScheduledExecution[]
+
+  @@map("scheduled_transactions")
+}
+
+model ScheduledExecution {
+  id                    String             @id @default(cuid())
+  scheduledDate         DateTime
+  executedDate          DateTime?
+  status                ExecutionStatus    @default(PENDING)
+  transactionId         String?            // Created transaction ID
+  transaction           Transaction?       @relation(fields: [transactionId], references: [id])
+  errorMessage          String?
+  createdAt             DateTime           @default(now())
+
+  // Relations
+  scheduledTransaction  ScheduledTransaction @relation(fields: [scheduledTransactionId], references: [id], onDelete: Cascade)
+  scheduledTransactionId String
+
+  @@map("scheduled_executions")
+}
+
+// ENUMS
 enum UserRole {
   ADMIN
   USER
@@ -122,4 +172,20 @@ enum AccountType {
   INCOME
   EXPENSE
   EQUITY
+}
+
+enum ScheduleFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum ExecutionStatus {
+  PENDING
+  EXECUTED
+  FAILED
+  SKIPPED
 }

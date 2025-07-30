@@ -39,4 +39,22 @@ export default async function TransactionsPage({ searchParams }: PageProps) {
           <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
           <p className="text-gray-600">View and manage your transactions</p>
         </div>
-        {(user.role
+        {(user.role === 'ADMIN' || user.role === 'USER') && (
+          <AddTransactionForm accounts={accounts} />
+        )}
+      </div>
+
+      <TransactionFilters 
+        accounts={accounts}
+        currentMonth={searchParams.month}
+        currentAccount={searchParams.account}
+        currentSearch={searchParams.search}
+      />
+
+      <TransactionsList 
+        transactions={filteredTransactions}
+        userRole={user.role}
+      />
+    </div>
+  )
+}
