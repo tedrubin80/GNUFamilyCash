@@ -1,0 +1,22 @@
+# Database
+# Railway will provide MYSQL_URL, but we need to format it for Prisma
+DATABASE_URL="mysql://${{MYSQL_USER}}:${{MYSQL_PASSWORD}}@${{MYSQL_HOST}}:${{MYSQL_PORT}}/${{MYSQL_DATABASE}}"
+
+# NextAuth.js
+NEXTAUTH_SECRET="generate-a-secure-random-string-here-use-openssl-rand-base64-32"
+NEXTAUTH_URL="https://${{RAILWAY_STATIC_URL}}"
+
+# Google Drive Integration (Optional)
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+GOOGLE_REFRESH_TOKEN=""
+GOOGLE_DRIVE_FOLDER_ID=""
+
+# App Settings
+APP_NAME="Family GnuCash"
+DEFAULT_CURRENCY="USD"
+
+# Railway provides these automatically:
+# PORT - The port your app should listen on
+# RAILWAY_STATIC_URL - Your app's public URL
+# MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE - MySQL connection details
