@@ -2,20 +2,16 @@
 nixPkgs = ["nodejs-18_x", "openssl"]
 
 [phases.install]
-cmds = [
-  "npm install --force",
-  "ls -la",
-  "ls -la prisma/",
-  "cat prisma/schema.prisma | head -20"
-]
+cmds = ["npm ci --force"]
 
 [phases.build]
 cmds = [
-  "echo 'DATABASE_URL for build:' && echo $DATABASE_URL",
-  "npx prisma generate || echo 'Prisma generate failed'",
-  "ls -la node_modules/.prisma/client || echo 'No prisma client found'",
-  "npm run build -- --debug"
+  "npx prisma generate",
+  "npm run build"
 ]
 
 [start]
 cmd = "npm start"
+
+[variables]
+NODE_ENV = "production"
