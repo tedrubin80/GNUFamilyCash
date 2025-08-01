@@ -1,23 +1,48 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['mysql2', '@prisma/client', 'bcryptjs']
-  },
-  images: {
-    domains: ['lh3.googleusercontent.com'],
-  },
-  // Fix for Railway deployment
+  // Disable strict mode for build
+  reactStrictMode: false,
+  
+  // Output standalone for better deployment
   output: 'standalone',
-  // Disable type checking during build (handle separately)
+  
+  // Ignore TypeScript and ESLint errors during build
   typescript: {
     ignoreBuildErrors: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Ensure proper env handling
-  env: {
-    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+  
+  // Disable SWC minification if causing issues
+  swcMinify: false,
+  
+  // Add external packages
+  experimental: {
+    serverComponentsExternalPackages: [
+      '@prisma/client',
+      'prisma',
+      'mysql2',
+      'bcryptjs'
+    ],
+  },
+  
+  // Webpack configuration to handle common issues
+  webpack: (config, { isServer }) => {
+    // Fix for Prisma
+    if (isServer) {
+      config.externals.push('@prisma/client')
+    }
+    
+    // Ignore optional dependencies that might cause issues
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@swc/core': false,
+      'utf-8-validate': false,
+      'bufferutil': false,
+    }
+    
+    return config
   },
 }
 
