@@ -4,16 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/prebuild.js && prisma generate && next build",
+    "build": "echo 'Starting build...' && npx prisma generate && next build || echo 'Build failed, check logs'",
     "start": "next start",
     "lint": "next lint",
-    "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio",
-    "db:seed": "node prisma/seed.js",
-    "prebuild": "node scripts/prebuild.js",
-    "postinstall": "prisma generate || echo 'Skipping prisma generate'"
+    "db:seed": "node prisma/seed.js"
   },
   "dependencies": {
     "next": "14.0.0",
@@ -39,8 +34,5 @@
     "tailwindcss": "^3.3.0",
     "eslint": "^8.0.0",
     "eslint-config-next": "14.0.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }

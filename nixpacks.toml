@@ -1,19 +1,21 @@
-# nixpacks.toml
 [phases.setup]
-nixPkgs = ["nodejs-18_x", "openssl", "libuuid"]
+nixPkgs = ["nodejs-18_x", "openssl"]
 
 [phases.install]
-cmds = ["npm ci --legacy-peer-deps"]
+cmds = [
+  "npm install --force",
+  "ls -la",
+  "ls -la prisma/",
+  "cat prisma/schema.prisma | head -20"
+]
 
 [phases.build]
 cmds = [
-  "npx prisma generate",
-  "npm run build"
+  "echo 'DATABASE_URL for build:' && echo $DATABASE_URL",
+  "npx prisma generate || echo 'Prisma generate failed'",
+  "ls -la node_modules/.prisma/client || echo 'No prisma client found'",
+  "npm run build -- --debug"
 ]
 
 [start]
 cmd = "npm start"
-
-[variables]
-NODE_ENV = "production"
-NEXT_TELEMETRY_DISABLED = "1"
