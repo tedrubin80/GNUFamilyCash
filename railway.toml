@@ -1,14 +1,14 @@
+# railway.toml
 [build]
 builder = "nixpacks"
-buildCommand = "npm install && npx prisma generate"
+buildCommand = "node scripts/setup-prisma-env.js && npm install && npx prisma generate && npm run build"
 
 [deploy]
-startCommand = "npx prisma db push && npm run db:seed || true && npm run build && npm start"
+startCommand = "node scripts/setup-prisma-env.js && npx prisma db push && npm start"
 restartPolicyType = "on-failure"
 restartPolicyMaxRetries = 3
 healthcheckPath = "/api/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 60
 
 [variables]
 NODE_ENV = "production"
-NEXT_TELEMETRY_DISABLED = "1"
