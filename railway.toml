@@ -1,10 +1,8 @@
+# railway.toml
 [build]
 builder = "nixpacks"
-# Don't specify buildCommand - let nixpacks.toml handle it
 
 [deploy]
-startCommand = "npm run start:railway"
+startCommand = "node scripts/debug-start.js"
 restartPolicyType = "on-failure"
-restartPolicyMaxRetries = 3
-healthcheckPath = "/api/health"
-healthcheckTimeout = 60
+restartPolicyMaxRetries = 10
