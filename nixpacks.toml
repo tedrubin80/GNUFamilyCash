@@ -13,14 +13,14 @@ cmds = [
     "npm install typescript @types/node @types/react @types/react-dom @types/bcryptjs --legacy-peer-deps",
     "npm install prisma tsx eslint eslint-config-next --legacy-peer-deps",
     "npm install googleapis csv-parser papaparse date-fns zod --legacy-peer-deps",
-    "npm install --legacy-peer-deps",
-    "echo 'Checking installations...'",
-    "ls -la node_modules | head -20"
+    "npm install --legacy-peer-deps"
 ]
 
 [phases.build]
 cmds = [
-    "node scripts/build-debug.js"
+    "node scripts/setup-env.js",
+    "npx prisma generate", 
+    "npx next build"
 ]
 
 [start]
