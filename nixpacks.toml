@@ -20,7 +20,7 @@ cmds = [
 cmds = [
     "node scripts/setup-env.js",
     "npx prisma generate", 
-    "npx next build"
+    "npx next build || (echo 'Build failed with error:' && cat .next/build-manifest.json 2>/dev/null && exit 1)"
 ]
 
 [start]
@@ -28,3 +28,4 @@ cmd = "npm run start:railway"
 
 [variables]
 NODE_ENV = "production"
+NEXT_TELEMETRY_DISABLED = "1"
