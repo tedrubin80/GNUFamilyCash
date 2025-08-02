@@ -1,14 +1,14 @@
-# nixpacks.toml
+# This file forces Railway to use npm install instead of npm ci
+
 [phases.setup]
-nixPkgs = ["nodejs-18_x", "npm-9_x"]
+nixPkgs = ["nodejs-18_x"]
 
 [phases.install]
-cmds = ["npm ci --legacy-peer-deps"]
+# Force npm install instead of npm ci
+cmds = ["npm install --legacy-peer-deps"]
 
 [phases.build]
-cmds = [
-  "npm run build"
-]
+cmds = ["npm run build"]
 
 [start]
 cmd = "npm run start:railway"

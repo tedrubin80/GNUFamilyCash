@@ -1,7 +1,6 @@
-# railway.toml
 [build]
 builder = "nixpacks"
-buildCommand = "npm ci --legacy-peer-deps && npm run build"
+# Don't specify buildCommand - let nixpacks.toml handle it
 
 [deploy]
 startCommand = "npm run start:railway"
@@ -9,6 +8,3 @@ restartPolicyType = "on-failure"
 restartPolicyMaxRetries = 3
 healthcheckPath = "/api/health"
 healthcheckTimeout = 60
-
-[variables]
-NODE_ENV = "production"
