@@ -1,7 +1,7 @@
 # railway.toml
 [build]
 builder = "nixpacks"
-buildCommand = "npm install && npm run build"
+buildCommand = "npm ci --legacy-peer-deps && npm run build"
 
 [deploy]
 startCommand = "npm run start:railway"
@@ -12,4 +12,3 @@ healthcheckTimeout = 60
 
 [variables]
 NODE_ENV = "production"
-# Set SEED_ON_START=true if you want to seed on first deploy
