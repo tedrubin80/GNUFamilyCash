@@ -1,35 +1,15 @@
-// scripts/build.js
-// Custom build script that ensures dependencies are installed
-
-const { execSync } = require('child_process');
-const fs = require('fs');
-
-console.log('🏗️  Custom build process starting...\n');
-
-// Step 1: Check if node_modules exists
-if (!fs.existsSync('node_modules')) {
-  console.log('📦 node_modules not found, installing dependencies...');
-  execSync('npm install --legacy-peer-deps', { stdio: 'inherit' });
-} else {
-  console.log('✅ node_modules exists');
-  
-  // Check if next is installed
-  if (!fs.existsSync('node_modules/next')) {
-    console.log('❌ Next.js not found, installing dependencies...');
-    execSync('npm install --legacy-peer-deps', { stdio: 'inherit' });
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "node scripts/build.js",
+    "start": "next start",
+    "start:railway": "node scripts/start-production.js",
+    "lint": "next lint",
+    "db:generate": "npx prisma generate",
+    "db:push": "node scripts/setup-env.js && npx prisma db push",
+    "db:migrate": "node scripts/setup-env.js && npx prisma migrate dev",
+    "db:studio": "node scripts/setup-env.js && npx prisma studio",
+    "db:seed": "node scripts/setup-env.js && tsx prisma/seed.ts",
+    "postinstall": "echo 'Skipping postinstall'"
   }
 }
-
-// Step 2: Setup environment
-console.log('\n🔧 Setting up environment...');
-require('./setup-env');
-
-// Step 3: Generate Prisma client
-console.log('\n📊 Generating Prisma client...');
-execSync('npx prisma generate', { stdio: 'inherit' });
-
-// Step 4: Build Next.js
-console.log('\n🚀 Building Next.js application...');
-execSync('npx next build', { stdio: 'inherit' });
-
-console.log('\n✅ Build complete!');
