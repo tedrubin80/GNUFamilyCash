@@ -1,7 +1,7 @@
 {
   "scripts": {
     "dev": "next dev",
-    "build": "npm install --legacy-peer-deps && node scripts/setup-env.js && npx prisma generate && next build",
+    "build": "node scripts/setup-env.js && npx prisma generate && next build",
     "start": "next start",
     "start:railway": "node scripts/start-production.js",
     "lint": "next lint",
