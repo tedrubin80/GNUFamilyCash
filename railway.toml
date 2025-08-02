@@ -1,10 +1,10 @@
 # railway.toml
 [build]
 builder = "nixpacks"
-buildCommand = "node scripts/setup-prisma-env.js && npm install && npx prisma generate && npm run build"
+buildCommand = "npm install && npm run build"
 
 [deploy]
-startCommand = "node scripts/setup-prisma-env.js && npx prisma db push && npm start"
+startCommand = "npm run start:railway"
 restartPolicyType = "on-failure"
 restartPolicyMaxRetries = 3
 healthcheckPath = "/api/health"
@@ -12,3 +12,4 @@ healthcheckTimeout = 60
 
 [variables]
 NODE_ENV = "production"
+# Set SEED_ON_START=true if you want to seed on first deploy
