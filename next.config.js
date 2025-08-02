@@ -1,3 +1,4 @@
+// next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Disable strict mode for build
