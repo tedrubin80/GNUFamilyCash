@@ -1,15 +1,15 @@
 {
   "scripts": {
     "dev": "next dev",
-    "build": "npm install --legacy-peer-deps && node scripts/setup-env.js && prisma generate && next build",  
+    "build": "npm install --legacy-peer-deps && node scripts/setup-env.js && npx prisma generate && next build",
     "start": "next start",
     "start:railway": "node scripts/start-production.js",
     "lint": "next lint",
-    "db:generate": "prisma generate",
-    "db:push": "node scripts/setup-env.js && prisma db push",
-    "db:migrate": "node scripts/setup-env.js && prisma migrate dev",
-    "db:studio": "node scripts/setup-env.js && prisma studio",
+    "db:generate": "npx prisma generate",
+    "db:push": "node scripts/setup-env.js && npx prisma db push",
+    "db:migrate": "node scripts/setup-env.js && npx prisma migrate dev",
+    "db:studio": "node scripts/setup-env.js && npx prisma studio",
     "db:seed": "node scripts/setup-env.js && tsx prisma/seed.ts",
-    "postinstall": "prisma generate || echo 'Skipping prisma generate'"
+    "postinstall": "npx prisma generate || echo 'Skipping prisma generate'"
   }
 }
