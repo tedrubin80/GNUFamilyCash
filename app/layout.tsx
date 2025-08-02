@@ -1,9 +1,6 @@
 import './globals.css'
-import { Inter } from 'next/font/google'
 import { Providers } from './providers'
 import { Navigation } from '@/components/Navigation'
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
   title: 'Family GnuCash',
@@ -17,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body>
         <Providers>
           <div className="min-h-screen bg-gray-50">
             <Navigation />
@@ -30,5 +27,3 @@ export default function RootLayout({
     </html>
   )
 }
-
-//
