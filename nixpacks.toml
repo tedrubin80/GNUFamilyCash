@@ -3,13 +3,13 @@
 nixPkgs = ["nodejs-18_x"]
 
 [phases.install]
-# Install ALL dependencies from package.json
+# Install ALL dependencies including the new Tailwind PostCSS
 cmds = [
     "echo 'Installing all dependencies...'",
     "npm install next react react-dom --legacy-peer-deps",
     "npm install @prisma/client @next-auth/prisma-adapter next-auth --legacy-peer-deps",
     "npm install bcryptjs mysql2 lucide-react clsx --legacy-peer-deps",
-    "npm install tailwindcss autoprefixer postcss --legacy-peer-deps",
+    "npm install @tailwindcss/postcss tailwindcss autoprefixer --legacy-peer-deps",
     "npm install typescript @types/node @types/react @types/react-dom @types/bcryptjs --legacy-peer-deps",
     "npm install prisma tsx eslint eslint-config-next --legacy-peer-deps",
     "npm install googleapis csv-parser papaparse date-fns zod --legacy-peer-deps",
@@ -20,7 +20,7 @@ cmds = [
 cmds = [
     "node scripts/setup-env.js",
     "npx prisma generate", 
-    "npx next build || (echo 'Build failed with error:' && cat .next/build-manifest.json 2>/dev/null && exit 1)"
+    "npx next build"
 ]
 
 [start]
@@ -28,4 +28,3 @@ cmd = "npm run start:railway"
 
 [variables]
 NODE_ENV = "production"
-NEXT_TELEMETRY_DISABLED = "1"
