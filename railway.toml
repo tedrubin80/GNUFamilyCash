@@ -1,8 +1,0 @@
-# railway.toml
-[build]
-builder = "nixpacks"
-
-[deploy]
-startCommand = "node scripts/debug-start.js"
-restartPolicyType = "on-failure"
-restartPolicyMaxRetries = 10
