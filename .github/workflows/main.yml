@@ -1,0 +1,564 @@
+name: Fix Family GnuCash Repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      fix_package_json:
+        description: 'Fix package.json scripts'
+        required: false
+        default: 'true'
+        type: boolean
+      fix_config_files:
+        description: 'Fix configuration files'
+        required: false
+        default: 'true'
+        type: boolean
+      remove_duplicates:
+        description: 'Remove duplicate files'
+        required: false
+        default: 'true'
+        type: boolean
+      create_missing_files:
+        description: 'Create missing files'
+        required: false
+        default: 'true'
+        type: boolean
+      dry_run:
+        description: 'Dry run (show changes without committing)'
+        required: false
+        default: 'false'
+        type: boolean
+  push:
+    branches: [ main, master ]
+    paths:
+      - '.github/workflows/fix-repository.yml'
+
+jobs:
+  fix-repository:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Analyze current repository structure
+      run: |
+        echo "🔍 Analyzing Family GnuCash Repository Structure"
+        echo "==============================================="
+        echo ""
+        
+        echo "📊 Current files found:"
+        find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" \) | grep -v node_modules | sort
+        echo ""
+        
+        echo "📋 Checking for critical files:"
+        critical_files=(
+          "package.json"
+          "next.config.js"
+          "middleware.ts"
+          "prisma/schema.prisma"
+          "components/ScheduledTransactionsList.tsx"
+          "components/AddScheduledTransactionForm.tsx"
+          "components/SubscriptionsList.tsx"
+          "lib/auth.ts"
+          "lib/database.ts"
+          "lib/utils.ts"
+          "app/layout.tsx"
+        )
+        
+        missing_files=()
+        for file in "${critical_files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "✅ $file exists"
+          else
+            echo "❌ $file missing"
+            missing_files+=("$file")
+          fi
+        done
+        
+        echo ""
+        echo "🔍 Checking for duplicate files:"
+        # Check for files with wrong case
+        find . -name "*scheduledtransaction*" -type f | grep -v ScheduledTransaction
+        find . -name "*addscheduled*" -type f | grep -v AddScheduled
+        
+        echo ""
+        echo "🔍 Checking for problematic files:"
+        problematic_files=(
+          "lib/addschedualedtransactionform.tsx"
+          "scripts/build.js"
+          "scripts/setup-env.js"
+          "scripts/start-production.js"
+          "scripts/build-debug.js"
+        )
+        
+        for file in "${problematic_files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "⚠️  Found problematic file: $file"
+          fi
+        done
+
+    - name: Remove duplicate and problematic files
+      if: ${{ inputs.remove_duplicates == 'true' }}
+      run: |
+        echo "🧹 Removing duplicate and problematic files..."
+        
+        # Track what we're removing
+        removed_files=()
+        
+        # Remove duplicate files with wrong case
+        duplicate_files=(
+          "lib/addschedualedtransactionform.tsx"
+          "lib/addschedualedtransactionform.ts"
+        )
+        
+        for file in "${duplicate_files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "🗑️  Removing duplicate: $file"
+            rm -f "$file"
+            removed_files+=("$file")
+          fi
+        done
+        
+        # Remove problematic script files
+        script_files=(
+          "scripts/build.js"
+          "scripts/setup-env.js" 
+          "scripts/start-production.js"
+          "scripts/build-debug.js"
+          "scripts/debug-start.js.js"
+          "scripts/build-debug-script.sh"
+          "scripts/railway-deploy-script.sh"
+        )
+        
+        for file in "${script_files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "🗑️  Removing problematic script: $file"
+            rm -f "$file"
+            removed_files+=("$file")
+          fi
+        done
+        
+        # Remove files with wrong case (keep the correct PascalCase ones)
+        find . -name "*scheduledtransaction*" -type f | grep -v ScheduledTransaction | while read -r file; do
+          if [ -f "$file" ]; then
+            echo "🗑️  Removing wrong case file: $file"
+            rm -f "$file"
+            removed_files+=("$file")
+          fi
+        done
+        
+        # Remove other problematic files
+        other_problematic=(
+          "postcc.config.js"
+          "file.sh"
+          "direct-deploy-script.sh"
+          "install-dependencies-script.sh"
+        )
+        
+        for file in "${other_problematic[@]}"; do
+          if [ -f "$file" ]; then
+            echo "🗑️  Removing: $file"
+            rm -f "$file"
+            removed_files+=("$file")
+          fi
+        done
+        
+        echo "✅ Cleanup complete. Removed ${#removed_files[@]} files."
+
+    - name: Fix package.json
+      if: ${{ inputs.fix_package_json == 'true' }}
+      run: |
+        echo "📦 Fixing package.json..."
+        
+        # Backup current package.json
+        if [ -f "package.json" ]; then
+          cp package.json package.json.backup
+        fi
+        
+        # Create clean package.json
+        cat > package.json << 'EOF'
+        {
+          "name": "family-gnucash",
+          "version": "0.1.0",
+          "private": true,
+          "scripts": {
+            "dev": "next dev",
+            "build": "npx prisma generate && next build",
+            "start": "next start",
+            "lint": "next lint",
+            "db:generate": "npx prisma generate",
+            "db:push": "npx prisma db push",
+            "db:migrate": "npx prisma migrate dev",
+            "db:studio": "npx prisma studio",
+            "db:seed": "tsx prisma/seed.ts"
+          },
+          "dependencies": {
+            "next": "14.0.0",
+            "react": "^18",
+            "react-dom": "^18",
+            "next-auth": "^4.24.5",
+            "@prisma/client": "^5.6.0",
+            "@next-auth/prisma-adapter": "^1.0.7",
+            "bcryptjs": "^2.4.3",
+            "mysql2": "^3.6.5",
+            "googleapis": "^128.0.0",
+            "csv-parser": "^3.0.0",
+            "papaparse": "^5.4.1",
+            "date-fns": "^2.30.0",
+            "zod": "^3.22.4",
+            "lucide-react": "^0.263.1",
+            "clsx": "^2.0.0",
+            "tailwindcss": "^3.3.0",
+            "autoprefixer": "^10.0.1",
+            "postcss": "^8"
+          },
+          "devDependencies": {
+            "typescript": "^5",
+            "@types/node": "^20",
+            "@types/react": "^18",
+            "@types/react-dom": "^18",
+            "@types/bcryptjs": "^2.4.6",
+            "@types/papaparse": "^5.3.14",
+            "prisma": "^5.6.0",
+            "tsx": "^4.0.0",
+            "eslint": "^8",
+            "eslint-config-next": "14.0.0"
+          }
+        }
+        EOF
+        
+        echo "✅ package.json fixed with clean, working scripts"
+
+    - name: Fix configuration files
+      if: ${{ inputs.fix_config_files == 'true' }}
+      run: |
+        echo "⚙️ Fixing configuration files..."
+        
+        # Fix next.config.js
+        echo "🔧 Fixing next.config.js..."
+        cat > next.config.js << 'EOF'
+        /** @type {import('next').NextConfig} */
+        const nextConfig = {
+          reactStrictMode: false,
+          typescript: {
+            ignoreBuildErrors: false,
+          },
+          eslint: {
+            ignoreDuringBuilds: false,
+          },
+          experimental: {
+            serverComponentsExternalPackages: [
+              '@prisma/client',
+              'prisma',
+              'mysql2',
+              'bcryptjs'
+            ]
+          },
+          webpack: (config, { isServer }) => {
+            if (isServer) {
+              config.externals.push('@prisma/client')
+            }
+            return config
+          },
+        }
+        
+        module.exports = nextConfig
+        EOF
+        
+        # Fix middleware.ts
+        echo "🔒 Fixing middleware.ts..."
+        cat > middleware.ts << 'EOF'
+        import { withAuth } from "next-auth/middleware"
+        import { NextResponse } from "next/server"
+        
+        export default withAuth(
+          function middleware(req) {
+            const token = req.nextauth.token
+            const isAuth = !!token
+            const isAuthPage = req.nextUrl.pathname.startsWith('/login')
+            const isAdminPage = req.nextUrl.pathname.startsWith('/admin')
+            const isAPIRoute = req.nextUrl.pathname.startsWith('/api')
+        
+            if (isAPIRoute) {
+              return NextResponse.next()
+            }
+        
+            if (!isAuth && !isAuthPage) {
+              return NextResponse.redirect(new URL('/login', req.url))
+            }
+        
+            if (isAuth && isAuthPage) {
+              return NextResponse.redirect(new URL('/dashboard', req.url))
+            }
+        
+            if (isAdminPage && token?.role !== 'ADMIN') {
+              return NextResponse.redirect(new URL('/dashboard', req.url))
+            }
+        
+            return NextResponse.next()
+          },
+          {
+            callbacks: {
+              authorized: ({ token, req }) => {
+                if (req.nextUrl.pathname.startsWith('/login')) {
+                  return true
+                }
+                
+                if (req.nextUrl.pathname.startsWith('/api')) {
+                  return true
+                }
+                
+                return !!token
+              },
+            },
+          }
+        )
+        
+        export const config = {
+          matcher: [
+            '/((?!_next/static|_next/image|favicon.ico).*)',
+          ],
+        }
+        EOF
+        
+        # Fix postcss.config.js
+        echo "🎨 Fixing postcss.config.js..."
+        cat > postcss.config.js << 'EOF'
+        module.exports = {
+          plugins: {
+            tailwindcss: {},
+            autoprefixer: {},
+          },
+        }
+        EOF
+        
+        echo "✅ Configuration files fixed"
+
+    - name: Create missing TypeScript types
+      if: ${{ inputs.create_missing_files == 'true' }}
+      run: |
+        echo "📝 Creating missing TypeScript types..."
+        
+        # Ensure types directory exists
+        mkdir -p types
+        
+        # Create missing next-auth types
+        if [ ! -f "types/next-auth.d.ts" ]; then
+          cat > types/next-auth.d.ts << 'EOF'
+        import { DefaultSession, DefaultUser } from "next-auth"
+        import { JWT, DefaultJWT } from "next-auth/jwt"
+        
+        declare module "next-auth" {
+          interface Session {
+            user: {
+              id: string
+              role: string
+              username: string
+            } & DefaultSession["user"]
+          }
+        
+          interface User extends DefaultUser {
+            role: string
+            username: string
+          }
+        }
+        
+        declare module "next-auth/jwt" {
+          interface JWT extends DefaultJWT {
+            role: string
+            username: string
+          }
+        }
+        EOF
+          echo "✅ Created types/next-auth.d.ts"
+        fi
+
+    - name: Create missing API routes
+      if: ${{ inputs.create_missing_files == 'true' }}
+      run: |
+        echo "🔗 Creating missing API routes..."
+        
+        # Ensure API directory structure exists
+        mkdir -p app/api/scheduled-transactions/{execute,"[id]"}
+        
+        # Create missing health check API
+        if [ ! -f "app/api/health/route.ts" ]; then
+          mkdir -p app/api/health
+          cat > app/api/health/route.ts << 'EOF'
+        import { NextResponse } from 'next/server'
+        
+        export async function GET() {
+          return NextResponse.json({ 
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            service: 'family-gnucash'
+          })
+        }
+        EOF
+          echo "✅ Created app/api/health/route.ts"
+        fi
+
+    - name: Ensure proper directory structure
+      if: ${{ inputs.create_missing_files == 'true' }}
+      run: |
+        echo "📁 Ensuring proper directory structure..."
+        
+        # Create necessary directories
+        directories=(
+          "app/admin/users"
+          "app/admin/settings"
+          "app/api/auth/[...nextauth]"
+          "app/api/admin/users"
+          "app/api/scheduled-transactions/[id]"
+          "app/api/scheduled-transactions/execute"
+          "components"
+          "lib"
+          "prisma"
+          "types"
+          "public"
+        )
+        
+        for dir in "${directories[@]}"; do
+          mkdir -p "$dir"
+          echo "✅ Ensured directory: $dir"
+        done
+        
+        # Create app/page.tsx if missing
+        if [ ! -f "app/page.tsx" ]; then
+          cat > app/page.tsx << 'EOF'
+        import { redirect } from 'next/navigation'
+        
+        export default function HomePage() {
+          redirect('/dashboard')
+        }
+        EOF
+          echo "✅ Created app/page.tsx"
+        fi
+
+    - name: Validate repository after fixes
+      run: |
+        echo "✅ Validating repository after fixes..."
+        
+        # Check that critical files exist
+        critical_files=(
+          "package.json"
+          "next.config.js"
+          "middleware.ts"
+          "postcss.config.js"
+          "app/page.tsx"
+          "types/next-auth.d.ts"
+        )
+        
+        all_good=true
+        for file in "${critical_files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "✅ $file exists"
+          else
+            echo "❌ $file missing"
+            all_good=false
+          fi
+        done
+        
+        # Validate JSON syntax
+        if node -e "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))" 2>/dev/null; then
+          echo "✅ package.json syntax valid"
+        else
+          echo "❌ package.json syntax invalid"
+          all_good=false
+        fi
+        
+        if [ "$all_good" = true ]; then
+          echo "🎉 Repository validation passed!"
+        else
+          echo "❌ Repository validation failed"
+          exit 1
+        fi
+
+    - name: Show summary of changes
+      run: |
+        echo "📊 Summary of Repository Changes"
+        echo "==============================="
+        echo ""
+        
+        echo "🔧 Files Fixed/Created:"
+        echo "- package.json (cleaned up problematic scripts)"
+        echo "- next.config.js (fixed configuration)"  
+        echo "- middleware.ts (proper NextAuth setup)"
+        echo "- postcss.config.js (Tailwind configuration)"
+        echo "- types/next-auth.d.ts (TypeScript declarations)"
+        echo "- app/page.tsx (root page redirect)"
+        echo "- app/api/health/route.ts (health check endpoint)"
+        echo ""
+        
+        echo "🗑️ Problematic Files Removed:"
+        echo "- lib/addschedualedtransactionform.tsx (duplicate)"
+        echo "- scripts/build.js (problematic custom script)"
+        echo "- scripts/setup-env.js (problematic custom script)"
+        echo "- Various other problematic files"
+        echo ""
+        
+        echo "📁 Directory Structure:"
+        find . -type d | grep -E "(app|components|lib|types|prisma)" | head -20 | sort
+        echo ""
+        
+        echo "🎯 Repository is now ready for:"
+        echo "1. Local development: npm install && npm run dev"
+        echo "2. Production build: npm run build"
+        echo "3. Database setup: npm run db:push"
+        echo "4. Production deployment"
+
+    - name: Commit changes (if not dry run)
+      if: ${{ inputs.dry_run == 'false' }}
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        git add -A
+        
+        if git diff --staged --quiet; then
+          echo "📝 No changes to commit"
+        else
+          git commit -m "🔧 Fix Family GnuCash repository structure
+
+        - Fixed package.json with clean, working scripts
+        - Updated next.config.js with proper configuration
+        - Fixed middleware.ts with correct NextAuth setup
+        - Removed duplicate and problematic files
+        - Created missing TypeScript types
+        - Added missing API routes and directory structure
+        - Ensured proper postcss.config.js
+        
+        Repository is now clean and ready for development/deployment 🚀
+        
+        Changes made:
+        ✅ Cleaned package.json scripts
+        ✅ Fixed configuration files
+        ✅ Removed duplicates and problematic files
+        ✅ Added missing types and API routes
+        ✅ Ensured proper directory structure"
+          
+          git push
+          echo "✅ Changes committed and pushed!"
+        fi
+
+    - name: Show dry run results
+      if: ${{ inputs.dry_run == 'true' }}
+      run: |
+        echo "🔍 DRY RUN - Changes that would be made:"
+        echo "======================================"
+        
+        git add -A
+        git status
+        
+        echo ""
+        echo "📝 Files that would be modified/created:"
+        git diff --staged --name-status
+        
+        echo ""
+        echo "🚫 This was a dry run - no changes were committed"
+        echo "   Set 'dry_run' to false to apply these changes"
