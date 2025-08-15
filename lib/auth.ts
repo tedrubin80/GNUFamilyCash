@@ -1,13 +1,13 @@
-// lib/auth.ts
+// File: lib/auth.ts
+
 import { getServerSession } from 'next-auth'
-import { prisma } from '@/lib/database'
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { PrismaAdapter } from '@next-auth/prisma-adapter'
 import bcrypt from 'bcryptjs'
+import { prisma } from '@/lib/database'
 
-// Define authOptions here instead of importing
-const authOptions: NextAuthOptions = {
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
@@ -63,9 +63,9 @@ const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.sub
-        session.user.role = token.role
-        session.user.username = token.username
+        session.user.id = token.sub!
+        session.user.role = token.role as string
+        session.user.username = token.username as string
       }
       return session
     },
