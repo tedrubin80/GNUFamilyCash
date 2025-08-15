@@ -1,0 +1,15 @@
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "node scripts/build.js",
+    "start": "next start",
+    "start:railway": "node scripts/start-production.js",
+    "lint": "next lint",
+    "db:generate": "npx prisma generate",
+    "db:push": "node scripts/setup-env.js && npx prisma db push",
+    "db:migrate": "node scripts/setup-env.js && npx prisma migrate dev",
+    "db:studio": "node scripts/setup-env.js && npx prisma studio",
+    "db:seed": "node scripts/setup-env.js && tsx prisma/seed.ts",
+    "postinstall": "echo 'Skipping postinstall'"
+  }
+}
