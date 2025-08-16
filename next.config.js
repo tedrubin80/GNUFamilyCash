@@ -1,27 +1,26 @@
-// next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: false,
-  output: 'standalone',
+  reactStrictMode: true,
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
-  // Move serverComponentsExternalPackages to the correct location
   serverExternalPackages: [
     '@prisma/client',
     'prisma',
     'mysql2',
     'bcryptjs'
   ],
-  // Remove deprecated swcMinify option
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.externals.push('@prisma/client')
     }
     return config
+  },
+  images: {
+    domains: ['lh3.googleusercontent.com'],
   },
 }
 
